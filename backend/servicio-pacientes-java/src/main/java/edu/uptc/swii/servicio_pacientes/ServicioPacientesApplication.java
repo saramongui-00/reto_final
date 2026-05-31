@@ -1,0 +1,13 @@
+package edu.uptc.swii.servicio_pacientes;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class ServicioPacientesApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ServicioPacientesApplication.class, args);
+	}
+
+}
