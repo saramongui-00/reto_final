@@ -65,6 +65,19 @@ public class JpaUsuarioRepositoryAdapter implements UsuarioRepository {
                 .map(this::mapToDomain);
     }
 
+    @Override
+    public java.util.List<Usuario> findAll() {
+        return jpaRepository.findAll()
+                .stream()
+                .map(this::mapToDomain)
+                .toList();
+    }
+
+    @Override
+    public void deleteById(UsuarioId id) {
+        jpaRepository.deleteById(Long.parseLong(id.getValue()));
+    }
+
     // Método auxiliar para transformar Entidad JPA -> Dominio de forma segura
     private Usuario mapToDomain(UsuarioEntity entity) {
 

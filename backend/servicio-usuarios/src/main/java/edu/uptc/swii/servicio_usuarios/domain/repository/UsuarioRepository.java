@@ -18,4 +18,10 @@ public interface UsuarioRepository {
     Optional<Usuario> findByEmail(Email email);
 
     Optional<Usuario> findByUsername(Username username);
+
+    // Obtiene todos los usuarios
+    java.util.List<Usuario> findAll();
+
+    // Elimina un usuario por ID
+    void deleteById(UsuarioId id);
 }
