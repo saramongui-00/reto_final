@@ -20,3 +20,19 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  # --- NUEVA BASE DE DATOS UNIFICADA ---
+  mysql-db:
+    image: mysql:8.0.45
+    container_name: mysql-optica
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: optica
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+# Volumen para que la base de datos no pierda información al apagarse
+volumes:
+  mysql_data:

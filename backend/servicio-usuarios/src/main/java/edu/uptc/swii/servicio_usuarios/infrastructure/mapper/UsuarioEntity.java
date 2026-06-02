@@ -22,13 +22,13 @@ public class UsuarioEntity {
     private String phone;
     private String address;
     private String rol;
-    private String password;
+    // private String password;
 
     public UsuarioEntity() {
     }
 
     public UsuarioEntity(Long id, String username, String email, String nombre, String phone, String address,
-            String rol, String password) {
+            String rol) {
         this.id = id;
         this.username = username;
         this.email = email;
@@ -36,7 +36,6 @@ public class UsuarioEntity {
         this.phone = phone;
         this.address = address;
         this.rol = rol;
-        this.password = password;
     }
 
     // --- GETTERS Y SETTERS ---
@@ -96,11 +95,4 @@ public class UsuarioEntity {
         this.rol = rol;
     }
 
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
 }

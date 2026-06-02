@@ -8,6 +8,8 @@ import edu.uptc.swii.servicio_usuarios.application.usecase.GetUsuarioUseCaseImpl
 import edu.uptc.swii.servicio_usuarios.application.usecase.UpdateProfileUseCaseImpl;
 import edu.uptc.swii.servicio_usuarios.domain.repository.UsuarioRepository;
 import edu.uptc.swii.servicio_usuarios.domain.service.UsuarioDomainService;
+import edu.uptc.swii.servicio_usuarios.infrastructure.messaging.KafkaEventPublisherAdapter;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -20,8 +22,10 @@ public class ApplicationServiceBeanConfig {
     }
 
     @Bean
-    public CreateUsuarioUseCase createUsuarioUseCase(UsuarioRepository usuarioRepository) {
-        return new CreateUsuarioUseCaseImpl(usuarioRepository);
+    public CreateUsuarioUseCase createUsuarioUseCase(
+            UsuarioRepository usuarioRepository,
+            KafkaEventPublisherAdapter kafkaPublisher) {
+        return new CreateUsuarioUseCaseImpl(usuarioRepository, kafkaPublisher);
     }
 
     @Bean

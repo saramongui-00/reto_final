@@ -36,7 +36,8 @@ public class JpaUsuarioRepositoryAdapter implements UsuarioRepository {
         UsuarioEntity entity = new UsuarioEntity();
         entity.setId(id);
         entity.setUsername(usuario.getUsername().getValue());
-        entity.setPassword(usuario.getPassword().getValue()); // Esta es la que causó el error
+        // entity.setPassword(usuario.getPassword().getValue()); // Esta es la que causó
+        // el error
         entity.setNombre(usuario.getNombre().getValue());
         entity.setEmail(usuario.getEmail().getValue());
         entity.setAddress(usuario.getAddress().getValue());
@@ -89,6 +90,6 @@ public class JpaUsuarioRepositoryAdapter implements UsuarioRepository {
                 entity.getPhone() != null ? new Phone(entity.getPhone()) : null,
                 entity.getAddress() != null ? new Address(entity.getAddress()) : null,
                 Rol.valueOf(entity.getRol()),
-                new Password(entity.getPassword()));
+                new Password("PASSWORD_DUMMY_MORE_THAN_8_CHARS"));
     }
 }
