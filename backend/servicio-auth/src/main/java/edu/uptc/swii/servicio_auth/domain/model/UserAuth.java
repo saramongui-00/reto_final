@@ -6,7 +6,7 @@ public class UserAuth extends AggregateRoot<UserId> {
     private final Username username;
     private final Email email;
     private Password password;
-    private final Role role;
+    private Role role;
     private AccountState state;
     private final String authProvider;
 
@@ -60,5 +60,11 @@ public class UserAuth extends AggregateRoot<UserId> {
 
     public String getAuthProvider() {
         return authProvider;
+    }
+
+    public void updateRole(Role newRole) {
+        if (newRole != null) {
+            this.role = newRole;
+        }
     }
 }

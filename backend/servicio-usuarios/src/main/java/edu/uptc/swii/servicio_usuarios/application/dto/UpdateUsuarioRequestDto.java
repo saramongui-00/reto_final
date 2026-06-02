@@ -4,6 +4,7 @@ public class UpdateUsuarioRequestDto {
     private String nombre;
     private String phone;
     private String address;
+    private String rol;
 
     public UpdateUsuarioRequestDto() {
     }
@@ -31,5 +32,13 @@ public class UpdateUsuarioRequestDto {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public String getRol() {
+        return rol;
+    }
+
+    public void setRol(String rol) {
+        this.rol = rol;
     }
 }

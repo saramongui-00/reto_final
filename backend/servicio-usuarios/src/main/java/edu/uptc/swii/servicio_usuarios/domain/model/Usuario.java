@@ -7,7 +7,7 @@ public class Usuario extends AggregateRoot<UsuarioId> {
     // Auth y no se cambian desde aquí
     private final Username username;
     private final Email email;
-    private final Rol rol;
+    private Rol rol;
 
     // Estos sí cambian cuando el usuario edita su perfil
     private Nombre nombre;
@@ -67,5 +67,11 @@ public class Usuario extends AggregateRoot<UsuarioId> {
 
     public Password getPassword() {
         return password;
+    }
+
+    public void updateRol(Rol newRole) {
+        if (newRole != null) {
+            this.rol = newRole;
+        }
     }
 }

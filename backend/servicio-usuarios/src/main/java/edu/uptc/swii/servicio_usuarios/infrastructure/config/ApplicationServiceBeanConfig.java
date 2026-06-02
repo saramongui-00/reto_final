@@ -30,8 +30,8 @@ public class ApplicationServiceBeanConfig {
 
     @Bean
     public UpdateProfileUseCase updateProfileUseCase(UsuarioRepository usuarioRepository,
-            UsuarioDomainService usuarioDomainService) {
-        return new UpdateProfileUseCaseImpl(usuarioRepository, usuarioDomainService);
+            UsuarioDomainService usuarioDomainService, KafkaEventPublisherAdapter kafkaPublisher) {
+        return new UpdateProfileUseCaseImpl(usuarioRepository, usuarioDomainService, kafkaPublisher);
     }
 
     @Bean
