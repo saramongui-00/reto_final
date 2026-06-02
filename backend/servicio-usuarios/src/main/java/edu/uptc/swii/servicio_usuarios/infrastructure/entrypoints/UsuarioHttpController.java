@@ -11,6 +11,7 @@ import edu.uptc.swii.servicio_usuarios.application.ports.CreateUsuarioUseCase;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,30 +39,35 @@ public class UsuarioHttpController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('OPTOMETRA')")
     public ResponseEntity<String> createUsuarioManually(@RequestBody CreateUsuarioRequestDto request) {
         createUsuarioUseCase.execute(request);
         return ResponseEntity.status(HttpStatus.CREATED).body("Perfil de usuario creado correctamente");
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('OPTOMETRA', 'SECRETARIO')")
     public ResponseEntity<List<UsuarioResponseDto>> getAllUsuarios() {
         List<UsuarioResponseDto> usuarios = getAllUsuariosUseCase.execute();
         return ResponseEntity.ok(usuarios);
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OPTOMETRA', 'SECRETARIO')")
     public ResponseEntity<UsuarioResponseDto> getPerfil(@PathVariable Long id) {
         UsuarioResponseDto response = getUsuarioUseCase.execute(id);
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('OPTOMETRA')")
     public ResponseEntity<Void> deleteUsuario(@PathVariable Long id) {
         deleteUsuarioUseCase.execute(id);
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/perfil")
+    @PreAuthorize("hasRole('OPTOMETRA')")
     public ResponseEntity<UsuarioResponseDto> updatePerfil(
             @PathVariable Long id,
             @RequestBody UpdateUsuarioRequestDto request) {

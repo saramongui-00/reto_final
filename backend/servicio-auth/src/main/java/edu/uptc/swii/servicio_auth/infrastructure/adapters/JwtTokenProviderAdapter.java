@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.List;
 
 @Component
 public class JwtTokenProviderAdapter implements TokenProviderPort {
@@ -27,7 +28,7 @@ public class JwtTokenProviderAdapter implements TokenProviderPort {
         return Jwts.builder()
                 .subject(user.getUsername().getValue())
                 .claim("email", user.getEmail().getValue())
-                .claim("role", user.getRole().name())
+                .claim("roles", List.of(user.getRole().name()))
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(key)
