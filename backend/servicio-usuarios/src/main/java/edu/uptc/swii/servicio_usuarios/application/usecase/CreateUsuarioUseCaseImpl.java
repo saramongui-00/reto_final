@@ -86,7 +86,7 @@ public class CreateUsuarioUseCaseImpl implements CreateUsuarioUseCase {
                                 idReal, // <-- Ahora es un Long perfecto
                                 usuarioGuardado.getUsername().getValue(),
                                 usuarioGuardado.getEmail().getValue(),
-                                usuarioGuardado.getPassword().getValue(),
+                                request.getPassword(), // Usamos el password del request, no el guardado
                                 usuarioGuardado.getRol().name());
                 // 6. Publicar a Kafka para que 'servicio-auth' lo reciba inmediatamente 🚀
                 kafkaPublisher.publishUsuarioCreatedEvent(evento);

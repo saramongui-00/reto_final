@@ -32,24 +32,39 @@ public class LoginUseCaseImpl implements LoginUseCase {
     public AuthResponseDto execute(LoginRequestDto request) {
         Optional<UserAuth> userOptional;
 
+        System.out.println("🔍 1. Buscando usuario por: " + request.identifier());
         if (request.identifier().contains("@")) {
             userOptional = repository.findByEmail(new Email(request.identifier()));
         } else {
             userOptional = repository.findByUsername(new Username(request.identifier()));
         }
 
-        UserAuth user = userOptional.orElseThrow(InvalidCredentialsException::new);
+        // Si falla aquí, significa que la BD no encontró el correo
+        UserAuth user = userOptional.orElseThrow(() -> {
+            System.out.println("❌ ERROR: El repositorio no encontró a ningún usuario con ese correo/username.");
+            return new InvalidCredentialsException();
+        });
+
+        System.out.println("✅ 2. Usuario encontrado en BD.");
+        System.out.println("   - Estado de la cuenta: " + user.getState());
 
         if (!user.canLogin()) {
             throw new RuntimeException("La cuenta se encuentra inhabilitada. Contacte al administrador.");
         }
 
-        if (!passwordEncoder.matches(request.password(), user.getPassword().getValue())) {
+        System.out.println("🔍 3. Validando contraseña...");
+        System.out.println("   - Hash guardado en Dominio: [" + user.getPassword().getValue() + "]");
+        System.out.println("   - Contraseña enviada en POST: [" + request.password() + "]");
+
+        boolean isMatch = passwordEncoder.matches(request.password(), user.getPassword().getValue());
+        System.out.println("✅ 4. ¿Coinciden los passwords?: " + isMatch);
+
+        if (!isMatch) {
+            System.out.println("❌ ERROR: BCrypt rechazó la contraseña.");
             throw new InvalidCredentialsException();
         }
 
         String token = tokenProvider.generateToken(user);
-
         return AuthDtoMapper.toLoginResponse(user, token);
     }
 }
