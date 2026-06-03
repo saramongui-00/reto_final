@@ -1,40 +1,32 @@
 package edu.uptc.swii.servicio_citas.infrastructure.entrypoints;
 
-import edu.uptc.swii.servicio_citas.application.ports.in.CancelCitaUseCase;
-import edu.uptc.swii.servicio_citas.application.ports.in.QueryCitasUseCase;
 import edu.uptc.swii.servicio_citas.application.dto.CitaResponse;
-import org.springframework.format.annotation.DateTimeFormat;
+import edu.uptc.swii.servicio_citas.application.dto.CreateCitaRequest;
+import edu.uptc.swii.servicio_citas.application.ports.in.CambiarEstadoCitaUseCase;
+import edu.uptc.swii.servicio_citas.application.ports.in.CreateCitaUseCase;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.time.LocalDate;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/citas")
 public class CitaHttpController {
 
-    private final CancelCitaUseCase cancelCitaUseCase;
-    private final QueryCitasUseCase queryCitasUseCase;
+    private final CreateCitaUseCase createCitaUseCase;
+    private final CambiarEstadoCitaUseCase cambiarEstadoCitaUseCase;
 
-    public CitaHttpController(CancelCitaUseCase cancelCitaUseCase, QueryCitasUseCase queryCitasUseCase) {
-        this.cancelCitaUseCase = cancelCitaUseCase;
-        this.queryCitasUseCase = queryCitasUseCase;
+    public CitaHttpController(CreateCitaUseCase createCitaUseCase, CambiarEstadoCitaUseCase cambiarEstadoCitaUseCase) {
+        this.createCitaUseCase = createCitaUseCase;
+        this.cambiarEstadoCitaUseCase = cambiarEstadoCitaUseCase;
     }
 
-    @PatchMapping("/{id}/cancelar")
-    public ResponseEntity<CitaResponse> handleCancel(@PathVariable String id) {
-        return ResponseEntity.ok(cancelCitaUseCase.execute(id));
+    @PostMapping
+    public ResponseEntity<CitaResponse> createCita(@RequestBody CreateCitaRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(createCitaUseCase.execute(request));
     }
 
-    @GetMapping("/paciente/{patientId}")
-    public ResponseEntity<List<CitaResponse>> handleGetByPatient(@PathVariable String patientId) {
-        return ResponseEntity.ok(queryCitasUseCase.findByPatientId(patientId));
-    }
-
-    @GetMapping("/buscar")
-    public ResponseEntity<List<CitaResponse>> handleGetByRange(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fin) {
-        return ResponseEntity.ok(queryCitasUseCase.findByDateRange(inicio, fin));
+    @PatchMapping("/{id}/preparar")
+    public ResponseEntity<CitaResponse> prepararCita(@PathVariable String id) {
+        return ResponseEntity.ok(cambiarEstadoCitaUseCase.marcarComoLista(id));
     }
 }

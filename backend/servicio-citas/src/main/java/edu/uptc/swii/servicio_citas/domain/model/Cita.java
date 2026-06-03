@@ -27,13 +27,6 @@ public class Cita {
         this.state = Objects.requireNonNull(state, "El estado de la cita no puede ser nulo");
     }
 
-    public void cancelar() {
-        if (this.state == AppointmentState.ATENDIDA) {
-            throw new IllegalStateException("No se puede cancelar una cita que ya ha sido ATENDIDA.");
-        }
-        this.state = AppointmentState.CANCELADA;
-    }
-
     public CitaListaParaAtencionEvent marcarComoListaParaAtencion() {
         if (this.state == AppointmentState.ATENDIDA || this.state == AppointmentState.CANCELADA) {
             throw new IllegalStateException(

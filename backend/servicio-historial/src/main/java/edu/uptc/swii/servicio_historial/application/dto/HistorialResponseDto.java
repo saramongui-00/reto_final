@@ -14,8 +14,6 @@ public record HistorialResponseDto(
     public record EyeExamDetailDto(
             String appointmentId,
             LocalDateTime examDate,
-            String appointmentReason,
-            String diagnosis,
             VisualAcuityDto visualAcuity,
             MotorStatusDto motorStatus,
             ExternalEyeExamDto externalEyeExam,

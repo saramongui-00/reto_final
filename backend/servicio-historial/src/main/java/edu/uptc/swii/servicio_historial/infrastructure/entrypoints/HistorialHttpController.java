@@ -4,7 +4,6 @@ import edu.uptc.swii.servicio_historial.application.dto.CreateHistorialRequestDt
 import edu.uptc.swii.servicio_historial.application.dto.HistorialResponseDto;
 import edu.uptc.swii.servicio_historial.application.ports.CreateHistorialUseCase;
 import edu.uptc.swii.servicio_historial.application.ports.GetHistorialUseCase;
-import edu.uptc.swii.servicio_historial.application.ports.GetUltimaFormulaUseCase;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,14 +14,10 @@ public class HistorialHttpController {
 
     private final CreateHistorialUseCase createHistorialUseCase;
     private final GetHistorialUseCase getHistorialUseCase;
-    private final GetUltimaFormulaUseCase getUltimaFormulaUseCase;
 
-    public HistorialHttpController(CreateHistorialUseCase createUseCase,
-                                   GetHistorialUseCase getUseCase,
-                                   edu.uptc.swii.servicio_historial.application.ports.GetUltimaFormulaUseCase getUltimaFormulaUseCase) {
+    public HistorialHttpController(CreateHistorialUseCase createUseCase, GetHistorialUseCase getUseCase) {
         this.createHistorialUseCase = createUseCase;
         this.getHistorialUseCase = getUseCase;
-        this.getUltimaFormulaUseCase = getUltimaFormulaUseCase;
     }
 
     @PostMapping
@@ -39,10 +34,5 @@ public class HistorialHttpController {
     @GetMapping("/paciente/{pacienteId}")
     public ResponseEntity<HistorialResponseDto> handleGetByPacienteId(@PathVariable String pacienteId) {
         return ResponseEntity.ok(getHistorialUseCase.getByPacienteId(pacienteId));
-    }
-
-    @GetMapping("/paciente/{pacienteId}/ultima-formula")
-    public ResponseEntity<edu.uptc.swii.servicio_historial.domain.model.Rx> handleGetUltimaFormula(@PathVariable String pacienteId) {
-        return ResponseEntity.ok(getUltimaFormulaUseCase.execute(pacienteId));
     }
 }
