@@ -1,13 +1,11 @@
 package edu.uptc.swii.servicio_historial.application.dto;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 public record CreateHistorialRequestDto(
         String pacienteId,
-        PersonalBackgroundDto personalBackground, // <-- Agrupado estructuralmente
-        String appointmentId,                     // Se mantiene en la raíz si se requiere por compatibilidad o se lee del eyeExam
-        EyeExamDto eyeExam                        // <-- ¡Aquí entra TODA la carga clínica!
+        PersonalBackgroundDto personalBackground,
+        EyeExamDto eyeExam
 ) {
     public record PersonalBackgroundDto(
             String personalHistory,
@@ -21,9 +19,7 @@ public record CreateHistorialRequestDto(
 
     public record EyeExamDto(
             String appointmentId,
-            LocalDateTime examDate, // Nota: Si no se envía en el JSON, asegúrate de que tu mapper o controlador le asigne LocalDateTime.now()
-            String appointmentReason,
-            String diagnosis,
+            LocalDateTime examDate,
             VisualAcuityDto visualAcuity,
             MotorStatusDto motorStatus,
             ExternalEyeExamDto externalEyeExam,
