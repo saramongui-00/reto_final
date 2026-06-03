@@ -19,7 +19,7 @@ public class GetUsuarioUseCaseImpl implements GetUsuarioUseCase {
     }
 
     @Override
-    public UsuarioResponseDto execute(Long id) {
+    public UsuarioResponseDto execute(String id) {
         // Conversión a String por tu Value Object de herencia
         UsuarioId usuarioId = new UsuarioId(String.valueOf(id));
 

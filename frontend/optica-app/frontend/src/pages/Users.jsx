@@ -19,23 +19,43 @@ function Users() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      getUser(payload.id).then(setCurrentUser);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (currentUser) {
-      getAllUsers().then((data) => {
-        setUsers(data);
-        setLoading(false);
-      }).catch(() => {
-        setLoading(false);
+  const token = localStorage.getItem("token");
+  if (token) {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    getUser(payload.sub).then((data) => {       // ← payload.sub en lugar de payload.id
+      setCurrentUser({
+        nombre: data.nombre || "---",
+        username: data.username || "---",
+        email: data.email || "---",
+        celular: data.phone || "---",           // ← phone igual que en User.jsx
+        rol: data.rol || "Sin Rol",
+        estado: data.estado || "ACTIVO"
       });
-    }
-  }, [currentUser]);
+    }).catch(err => console.error("Error cargando usuario actual:", err));
+  }
+}, []);
+
+useEffect(() => {
+  if (currentUser) {
+    getAllUsers().then((data) => {
+      // Mapear cada usuario del array al formato que usa la tabla
+      const mapped = data.map(u => ({
+        id: u.id,
+        nombre: u.nombre || "---",
+        user: u.username || "---",             // ← la tabla usa user.user
+        email: u.email || "---",
+        celular: u.phone || "---",             // ← la tabla usa user.celular
+        rol: u.rol || "---",
+        estado: u.estado || "activo"
+      }));
+      setUsers(mapped);
+      setLoading(false);
+    }).catch((err) => {
+      console.error("Error cargando usuarios:", err);
+      setLoading(false);
+    });
+  }
+}, [currentUser]);
 
   const handleLogout = () => {
     localStorage.clear();

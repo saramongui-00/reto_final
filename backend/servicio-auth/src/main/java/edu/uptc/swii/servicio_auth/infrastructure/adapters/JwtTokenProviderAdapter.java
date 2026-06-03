@@ -11,7 +11,6 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 
 @Component
 public class JwtTokenProviderAdapter implements TokenProviderPort {
@@ -20,7 +19,6 @@ public class JwtTokenProviderAdapter implements TokenProviderPort {
     // application.properties
     private static final String SECRET_KEY_STRING = "EstaEsUnaClaveSecretaUltraSeguraParaLaOptica2026!!!";
     private static final long EXPIRATION_TIME = 86400000; // 1 día en milisegundos
-    private UserAuthRepository usuarioRepository;
 
     @Override
     public String generateToken(UserAuth user) {
@@ -35,7 +33,7 @@ public class JwtTokenProviderAdapter implements TokenProviderPort {
                 .claim("roles", List.of(user.getRole().name()))
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(key)
+                .signWith(key, Jwts.SIG.HS384) // ← especifica HS384 explícitamente
                 .compact();
     }
 }

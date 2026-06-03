@@ -50,8 +50,17 @@ public class JpaUsuarioRepositoryAdapter implements UsuarioRepository {
 
     @Override
     public Optional<Usuario> findById(UsuarioId id) {
-        return jpaRepository.findById(Long.parseLong(id.getValue()))
-                .map(this::mapToDomain);
+        System.out.println("🔍 Buscando usuario con id: " + id.getValue());
+        try {
+            Long numericId = Long.parseLong(id.getValue());
+            System.out.println("✅ Es numérico: " + numericId);
+            return jpaRepository.findById(numericId).map(this::mapToDomain);
+        } catch (NumberFormatException e) {
+            System.out.println("🔄 No es número, buscando por username: " + id.getValue());
+            Optional<Usuario> result = jpaRepository.findByUsername(id.getValue()).map(this::mapToDomain);
+            System.out.println("📦 Resultado: " + (result.isPresent() ? "encontrado" : "vacío"));
+            return result;
+        }
     }
 
     @Override
