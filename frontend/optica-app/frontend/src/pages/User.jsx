@@ -7,13 +7,31 @@ function User() {
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
+useEffect(() => {
+  const fetchUser = async () => {
     const token = localStorage.getItem("token");
-    if (token) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      getUser(payload.id).then(setUser);
+    if (!token) return;
+
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const username = payload.sub; // "Diana" — existe seguro en la BD
+
+    try {
+      const data = await getUser(username); // ← busca por username
+      setUser({
+        nombre: data.nombreCompleto || data.nombre || "---",
+        user: data.username || "---",
+        email: data.email || "---",
+        celular: data.phone || "---",
+        rol: data.rol || "Sin Rol",
+        estado: data.estado || "ACTIVO"
+      });
+    } catch (error) {
+      console.error("Error al obtener usuario:", error);
     }
-  }, []);
+  };
+
+  fetchUser();
+}, []);
 
   const handleLogout = () => {
     localStorage.clear();

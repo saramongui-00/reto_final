@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@CrossOrigin(origins = "http://localhost:5174")
 @RestController
 @RequestMapping("/api/usuarios")
 public class UsuarioHttpController {
@@ -54,7 +55,8 @@ public class UsuarioHttpController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('OPTOMETRA', 'SECRETARIO')")
-    public ResponseEntity<UsuarioResponseDto> getPerfil(@PathVariable Long id) {
+    public ResponseEntity<UsuarioResponseDto> getPerfil(@PathVariable String id) {
+        System.out.println("🎯 Controlador alcanzado con id: " + id); // ← agrega esto
         UsuarioResponseDto response = getUsuarioUseCase.execute(id);
         return ResponseEntity.ok(response);
     }

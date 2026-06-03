@@ -2,6 +2,7 @@ package edu.uptc.swii.servicio_auth.infrastructure.adapters;
 
 import edu.uptc.swii.servicio_auth.application.ports.TokenProviderPort;
 import edu.uptc.swii.servicio_auth.domain.model.UserAuth;
+import edu.uptc.swii.servicio_auth.domain.repository.UserAuthRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
@@ -27,11 +28,12 @@ public class JwtTokenProviderAdapter implements TokenProviderPort {
 
         return Jwts.builder()
                 .subject(user.getUsername().getValue())
+                .claim("id", user.getId().getValue())
                 .claim("email", user.getEmail().getValue())
                 .claim("roles", List.of(user.getRole().name()))
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(key)
+                .signWith(key, Jwts.SIG.HS384) // ← especifica HS384 explícitamente
                 .compact();
     }
 }
