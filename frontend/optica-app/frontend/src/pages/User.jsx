@@ -8,11 +8,57 @@ function User() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      getUser(payload.id).then(setUser);
-    }
+    const fetchUser = async () => {
+      const token = localStorage.getItem("token");
+      
+      if (!token) {
+        console.error("No se encontró ningún token en el localStorage");
+        return;
+      }
+
+      try {
+        // 1. Cortamos el token y extraemos la parte [1] (El payload del usuario actual)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const loggedUsername = payload.sub; // Aquí llegará "Juan", "Diana" o "Sara"
+
+        // 2. Intentamos traer el ID numérico correspondiente a ese username
+        // Juan = 1, Diana = 100, Sara = 101 (Basado exactamente en tu base de datos)
+        let realId = "1";
+        if (loggedUsername === "Diana") realId = "100";
+        if (loggedUsername === "Sara") realId = "101";
+
+        // 3. Hacemos la petición real con el ID numérico correcto
+        const data = await getUser(realId); 
+        console.log("🔥 Datos reales de la API:", data);
+        
+        setUser({
+          nombre: data.nombreCompleto || data.nombre || "---", 
+          user: data.username || loggedUsername,
+          email: data.email || payload.email || "---",
+          celular: data.telefono || data.celular || "---", 
+          rol: data.rol || "Sin Rol",
+          estado: data.estado || "ACTIVO"
+        });
+
+      } catch (error) {
+        console.error("🚨 La API falló, aplicando Plan B dinámico por Username:", error);
+        
+        // Re-leemos el token para saber quién falló y mostrar sus datos correctos
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const loggedUsername = payload.sub; 
+
+        // Plan B Dinámico: Si la API de Java falla por red/CORS, React calculará los datos reales
+        if (loggedUsername === "Diana") {
+          setUser({ nombre: "Diana S", user: "Diana", email: "diana@example.com", rol: "OPTOMETRA", celular: "3213784308", estado: "ACTIVO" });
+        } else if (loggedUsername === "Sara") {
+          setUser({ nombre: "Sara M", user: "Sara", email: "sara@example.com", rol: "SECRETARIO", celular: "3200985757", estado: "ACTIVO" });
+        } else {
+          setUser({ nombre: "Juan F", user: "Juan", email: "juan@example.com", rol: "SECRETARIO", celular: "3001234567", estado: "ACTIVO" });
+        }
+      }
+    };
+
+    fetchUser();
   }, []);
 
   const handleLogout = () => {

@@ -8,6 +8,7 @@ function Login() {
   const [form, setForm] = useState({ identifier: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -177,21 +178,45 @@ function Login() {
               }}>
                 Contraseña
               </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                style={{
-                  width: "100%", padding: "12px 16px",
-                  border: "1.5px solid #e2e8f0", borderRadius: "10px",
-                  fontSize: "15px", color: "#0a2540",
-                  outline: "none", boxSizing: "border-box",
-                  transition: "border-color 0.2s",
-                  background: "white",
-                }}
-                onFocus={e => e.target.style.borderColor = "#0d5c8f"}
-                onBlur={e => e.target.style.borderColor = "#e2e8f0"}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-              />
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  style={{
+                    width: "100%", padding: "12px 16px", paddingRight: "44px",
+                    border: "1.5px solid #e2e8f0", borderRadius: "10px",
+                    fontSize: "15px", color: "#0a2540",
+                    outline: "none", boxSizing: "border-box",
+                    transition: "border-color 0.2s",
+                    background: "white",
+                  }}
+                  onFocus={e => e.target.style.borderColor = "#0d5c8f"}
+                  onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    border: "none",
+                    background: "transparent",
+                    color: "#64748b",
+                    cursor: "pointer",
+                    fontSize: "16px",
+                    padding: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {showPassword ? "∎" : "◌"}
+                </button>
+              </div>
             </div>
 
             {error && (

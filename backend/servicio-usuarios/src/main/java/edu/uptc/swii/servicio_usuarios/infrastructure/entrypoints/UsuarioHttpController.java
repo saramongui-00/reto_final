@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "http://localhost:5173")
 @RestController
 @RequestMapping("/api/usuarios")
 public class UsuarioHttpController {
@@ -53,6 +53,7 @@ public class UsuarioHttpController {
         return ResponseEntity.ok(usuarios);
     }
 
+    @CrossOrigin(origins = "http://localhost:5173")
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('OPTOMETRA', 'SECRETARIO')")
     public ResponseEntity<UsuarioResponseDto> getPerfil(@PathVariable Long id) {

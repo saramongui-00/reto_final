@@ -2,6 +2,7 @@ package edu.uptc.swii.servicio_auth.infrastructure.adapters;
 
 import edu.uptc.swii.servicio_auth.application.ports.TokenProviderPort;
 import edu.uptc.swii.servicio_auth.domain.model.UserAuth;
+import edu.uptc.swii.servicio_auth.domain.repository.UserAuthRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
@@ -10,6 +11,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class JwtTokenProviderAdapter implements TokenProviderPort {
@@ -18,6 +20,7 @@ public class JwtTokenProviderAdapter implements TokenProviderPort {
     // application.properties
     private static final String SECRET_KEY_STRING = "EstaEsUnaClaveSecretaUltraSeguraParaLaOptica2026!!!";
     private static final long EXPIRATION_TIME = 86400000; // 1 día en milisegundos
+    private UserAuthRepository usuarioRepository;
 
     @Override
     public String generateToken(UserAuth user) {
@@ -27,6 +30,7 @@ public class JwtTokenProviderAdapter implements TokenProviderPort {
 
         return Jwts.builder()
                 .subject(user.getUsername().getValue())
+                .claim("id", user.getId().getValue())
                 .claim("email", user.getEmail().getValue())
                 .claim("roles", List.of(user.getRole().name()))
                 .issuedAt(now)
