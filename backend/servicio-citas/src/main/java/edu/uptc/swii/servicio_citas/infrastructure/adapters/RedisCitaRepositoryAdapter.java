@@ -1,5 +1,4 @@
 package edu.uptc.swii.servicio_citas.infrastructure.adapters;
-// ... Mantener imports previos y añadir:
 import edu.uptc.swii.servicio_citas.domain.model.Cita;
 import edu.uptc.swii.servicio_citas.domain.repository.CitaRepository;
 import edu.uptc.swii.servicio_citas.infrastructure.mapper.CitaEntityMapper;
@@ -33,6 +32,14 @@ public class RedisCitaRepositoryAdapter implements CitaRepository {
     @Override
     public List<Cita> findAll() {
         return StreamSupport.stream(redisRepository.findAll().spliterator(), false)
+                .map(CitaEntityMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Cita> findByState(String state) {
+        return redisRepository.findByState(state)
+                .stream()
                 .map(CitaEntityMapper::toDomain)
                 .collect(Collectors.toList());
     }

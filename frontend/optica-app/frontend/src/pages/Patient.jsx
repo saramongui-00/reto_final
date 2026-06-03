@@ -11,7 +11,7 @@ import {
 } from "../api/patient.api";
 
 function Patient() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState({ nombre: "Invitado", rol: "OPTOMETRA" });
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -51,8 +51,12 @@ function Patient() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      setUser({ id: payload.id, nombre: payload.nombre, rol: payload.rol });
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUser({ id: payload.id, nombre: payload.nombre, rol: payload.rol });
+      } catch (error) {
+        console.warn("Token inválido en localStorage:", error);
+      }
     }
     loadEnums();
     loadPatients();
@@ -163,15 +167,6 @@ function Patient() {
     setEditingId(null);
   };
 
-  if (!user) return (
-    <div style={{
-      minHeight: "100vh", display: "flex",
-      alignItems: "center", justifyContent: "center",
-      fontFamily: "'DM Sans', sans-serif", background: "#f0f4f8",
-    }}>
-      <div style={{ color: "#64748b" }}>Cargando...</div>
-    </div>
-  );
 
   return (
     <div style={{

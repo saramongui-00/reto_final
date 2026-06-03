@@ -16,6 +16,7 @@ public class CitaRedisEntity {
     private LocalTime appointment;
     @Indexed
     private String patientId;
+    @Indexed
     private String state;
 
     public CitaRedisEntity() {}

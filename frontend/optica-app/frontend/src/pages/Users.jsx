@@ -4,7 +4,7 @@ import { getUser } from "../api/user.api";
 import { useNavigate } from "react-router-dom";
 
 function Users() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState({ nombre: "Invitado", rol: "OPTOMETRA" });
   const [users, setUsers] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -151,7 +151,7 @@ useEffect(() => {
     setUserToChangeStatus(null);
   };
 
-  if (!currentUser || loading) return (
+  if (loading) return (
     <div style={{
       minHeight: "100vh", display: "flex",
       alignItems: "center", justifyContent: "center",

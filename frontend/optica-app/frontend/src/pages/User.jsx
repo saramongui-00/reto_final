@@ -3,7 +3,7 @@ import { getUser } from "../api/user.api";
 import { useNavigate } from "react-router-dom";
 
 function User() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState({ nombre: "Invitado", rol: "OPTOMETRA" });
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -37,16 +37,6 @@ useEffect(() => {
     localStorage.clear();
     navigate("/");
   };
-
-  if (!user) return (
-    <div style={{
-      minHeight: "100vh", display: "flex",
-      alignItems: "center", justifyContent: "center",
-      fontFamily: "'DM Sans', sans-serif", background: "#f0f4f8",
-    }}>
-      <div style={{ color: "#64748b" }}>Cargando...</div>
-    </div>
-  );
 
   return (
     <div style={{

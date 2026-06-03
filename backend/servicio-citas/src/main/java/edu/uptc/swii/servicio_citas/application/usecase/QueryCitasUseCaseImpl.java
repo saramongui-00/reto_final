@@ -2,6 +2,7 @@ package edu.uptc.swii.servicio_citas.application.usecase;
 
 import edu.uptc.swii.servicio_citas.application.ports.in.QueryCitasUseCase;
 import edu.uptc.swii.servicio_citas.application.dto.CitaResponse;
+import edu.uptc.swii.servicio_citas.domain.model.Cita;
 import edu.uptc.swii.servicio_citas.domain.repository.CitaRepository;
 import edu.uptc.swii.servicio_citas.infrastructure.mapper.CitaDtoMapper;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,15 @@ public class QueryCitasUseCaseImpl implements QueryCitasUseCase {
     public List<CitaResponse> findByDateRange(LocalDate inicio, LocalDate fin) {
         return repository.findAll().stream()
                 .filter(cita -> !cita.getDate().isBefore(inicio) && !cita.getDate().isAfter(fin))
+                .map(CitaDtoMapper::toResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<CitaResponse> execute() {
+        return repository.findAll().stream()
+                // Convertimos el enum a String antes de compararlo con el equals
+                .filter(cita -> cita.getState() != null && "LISTA_PARA_ATENCION".equals(cita.getState().name()))
                 .map(CitaDtoMapper::toResponseDto)
                 .collect(Collectors.toList());
     }

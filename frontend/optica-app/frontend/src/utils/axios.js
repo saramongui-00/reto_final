@@ -1,18 +1,11 @@
+// src/api/axiosConfig.js
 import axios from "axios";
 
-export const authAPI = axios.create({
-  baseURL: "http://localhost:8081", // ajusta si tu auth está en otro puerto
-});
+export const authAPI = axios.create({ baseURL: "http://localhost:8081" });
+export const userAPI = axios.create({ baseURL: "http://localhost:8082" });
+export const citasAPI = axios.create({ baseURL: "http://localhost:8083" }); 
+export const patientAPI = axios.create({ baseURL: "http://localhost:8084" });
 
-export const userAPI = axios.create({
-  baseURL: "http://localhost:8082",
-});
-
-export const patientAPI = axios.create({
-  baseURL: "http://localhost:8084",
-});
-
-// interceptor para token
 const addToken = (config) => {
   const token = localStorage.getItem("token");
   if (token) {
@@ -21,6 +14,6 @@ const addToken = (config) => {
   return config;
 };
 
-[userAPI, patientAPI].forEach(api => {
+[userAPI, patientAPI, citasAPI].forEach(api => {
   api.interceptors.request.use(addToken);
 });

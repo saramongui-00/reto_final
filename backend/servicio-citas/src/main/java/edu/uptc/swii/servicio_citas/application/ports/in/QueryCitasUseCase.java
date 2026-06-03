@@ -7,4 +7,5 @@ import java.util.List;
 public interface QueryCitasUseCase {
     List<CitaResponse> findByPatientId(String patientId);
     List<CitaResponse> findByDateRange(LocalDate inicio, LocalDate fin);
+    List<CitaResponse> execute();
 }
