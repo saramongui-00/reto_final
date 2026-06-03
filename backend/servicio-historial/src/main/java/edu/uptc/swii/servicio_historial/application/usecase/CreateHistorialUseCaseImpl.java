@@ -10,18 +10,15 @@ import edu.uptc.swii.servicio_historial.domain.model.Historial;
 import edu.uptc.swii.servicio_historial.domain.model.PacienteId;
 import edu.uptc.swii.servicio_historial.domain.model.PersonalBackground;
 import edu.uptc.swii.servicio_historial.domain.repository.HistorialRepository;
-import edu.uptc.swii.servicio_historial.shared.domain.EventPublisher; // Aseguramos el import
-import org.springframework.stereotype.Service;
+import edu.uptc.swii.servicio_historial.shared.domain.EventPublisher;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
 
 public class CreateHistorialUseCaseImpl implements CreateHistorialUseCase {
 
     private final HistorialRepository historialRepository;
     private final CitaEnEsperaPort citaEnEsperaPort;
-    private final EventPublisher eventPublisher; // <- Añadido
+    private final EventPublisher eventPublisher;
 
-    // Constructor con los 3 parámetros requeridos
     public CreateHistorialUseCaseImpl(HistorialRepository historialRepository,
                                       CitaEnEsperaPort citaEnEsperaPort,
                                       EventPublisher eventPublisher) {
@@ -33,8 +30,8 @@ public class CreateHistorialUseCaseImpl implements CreateHistorialUseCase {
     @Override
     @Transactional
     public HistorialResponseDto execute(CreateHistorialRequestDto request) {
-
-        String appointmentId = request.appointmentId();
+        // Extraemos el ID de la cita directamente desde el objeto eyeExam del DTO
+        String appointmentId = request.eyeExam().appointmentId();
         String patientIdStr = request.pacienteId();
 
         // 1. VALIDACIÓN ARQUITECTÓNICA ASÍNCRONA
@@ -45,44 +42,32 @@ public class CreateHistorialUseCaseImpl implements CreateHistorialUseCase {
             );
         }
 
-        // 2. OBTENER O CREAR EL AGREGADO CLÍNICO
+        // 2. OBTENER O CREAR EL AGREGADO CLÍNICO (DDD)
         PacienteId pacienteId = new PacienteId(patientIdStr);
-
         Historial historial = historialRepository.findByPacienteId(pacienteId)
                 .orElseGet(() -> {
-                    String consolidatedHistory = (request.medicalHistoryLines() != null)
-                            ? String.join(", ", request.medicalHistoryLines())
-                            : "";
-
-                    PersonalBackground background = new PersonalBackground(
-                            consolidatedHistory, null, null, null, null, null, null
-                    );
+                    // Usamos tu mapeador real para el PersonalBackground
+                    PersonalBackground background = HistorialDtoMapper.toDomainBackground(request.personalBackground());
                     return Historial.create(pacienteId, background);
                 });
 
-        // 3. CREACIÓN DEL REQUISITO DE DOMINIO 'EYEEXAM'
-        EyeExam nuevoExamen = EyeExam.create(
-                appointmentId,
-                LocalDateTime.now(),
-                request.appointmentReason(),
-                request.diagnosis(),
-                null, null, null, null, null, null,
-                request.rx()
-        );
+        // 3. CONVERSIÓN COMPLETA DE EYEEXAM USANDO TU MAPPER
+        // Ya no pasamos nulls, procesamos la estructura clínica completa enviada en el JSON
+        EyeExam nuevoExamen = HistorialDtoMapper.toDomainEntity(request.eyeExam());
 
+        // El agregado valida que no se duplique la cita
         historial.addEyeExam(nuevoExamen);
 
         // 4. PERSISTENCIA EN MONGODB
         Historial savedHistorial = historialRepository.save(historial);
 
-        // 5. PUBLICACIÓN DE EVENTOS DE DOMINIO (DDD)
-        // Se asume que tu AggregateRoot expone los eventos acumulados
+        // 5. EVENTOS DE DOMINIO
         if (!savedHistorial.getDomainEvents().isEmpty()) {
             eventPublisher.publish(savedHistorial.getDomainEvents());
             savedHistorial.clearDomainEvents();
         }
 
-        // 6. CIERRE DE CICLO Y RESPUESTA
+        // 6. CIERRE DE CICLO
         citaEnEsperaPort.eliminarDeLaEspera(appointmentId);
 
         return HistorialDtoMapper.toResponseDto(savedHistorial);
