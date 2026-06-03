@@ -6,9 +6,15 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
   const login = (data) => {
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("nombre", data.nombre);
-    localStorage.setItem("rol", data.rol);
+    // 1. Guarda el token (si tu DTO de Java usa 'jwt' o 'token', aquí se aseguran ambos)
+    localStorage.setItem("token", data.token || data.jwt);
+    
+    // 2. Si el backend manda 'username', lo guarda como 'nombre' en el localStorage
+    localStorage.setItem("nombre", data.username || data.nombre);
+    
+    // 3. Si el backend manda 'role', lo guarda como 'rol' en el localStorage
+    localStorage.setItem("rol", data.role || data.rol);
+    
     setUser(data);
   };
 

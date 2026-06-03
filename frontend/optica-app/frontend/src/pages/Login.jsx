@@ -4,7 +4,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
 function Login() {
-  const [form, setForm] = useState({ user: "", password: "" });
+  // 🔥 CAMBIO 1: Cambiamos 'user' por 'username' para que coincida con el DTO de Spring Boot
+  const [form, setForm] = useState({ identifier: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -12,27 +13,35 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  setError("");
+    setError("");
 
-  if (!form.user.trim() || !form.password.trim()) {
-    setError("Por favor completa todos los campos");
-    return;
-  }
-
-  setLoading(true);
-  try {
-    const data = await loginRequest(form);
-    login(data);
-    if (data.rol === "OPTOMETRA") {
-      navigate("/dashboard");
-    } else {
-      navigate("/user"); // aqui se podria cambiar a otra pantalla, por ahora está el usuario
+    // 🔥 Validamos con 'username'
+    if (!form.identifier.trim() || !form.password.trim()) {
+      setError("Por favor completa todos los campos");
+      return;
     }
-  } catch (err) {
-    setError("Credenciales inválidas");
-  } finally {
-    setLoading(false);
-  }
+
+    setLoading(true);
+    try {
+      const data = await loginRequest(form);
+      
+      // Aquí tu hook 'useAuth' recibe la data y guarda el token en el localStorage
+      login(data);
+
+      // 🔥 CAMBIO 2: Spring Boot devuelve 'role'. Usamos una alternativa por si acaso.
+      const userRole = data.role || data.rol; 
+
+      if (userRole === "OPTOMETRA") {
+        navigate("/dashboard");
+      } else {
+        navigate("/user"); 
+      }
+    } catch (err) {
+      // Si el backend responde con un error específico, lo mostramos, si no, el genérico
+      setError(err.response?.data?.message || "Credenciales inválidas o error de conexión");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -155,7 +164,8 @@ function Login() {
                 }}
                 onFocus={e => e.target.style.borderColor = "#0d5c8f"}
                 onBlur={e => e.target.style.borderColor = "#e2e8f0"}
-                onChange={(e) => setForm({ ...form, user: e.target.value })}
+                // 🔥 Aseguramos que actualice 'username' en el estado
+                onChange={(e) => setForm({ ...form, identifier: e.target.value })}
               />
             </div>
 
