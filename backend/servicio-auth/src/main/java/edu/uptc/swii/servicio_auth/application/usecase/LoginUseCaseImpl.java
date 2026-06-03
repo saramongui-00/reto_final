@@ -39,7 +39,6 @@ public class LoginUseCaseImpl implements LoginUseCase {
             userOptional = repository.findByUsername(new Username(request.identifier()));
         }
 
-        // Si falla aquí, significa que la BD no encontró el correo
         UserAuth user = userOptional.orElseThrow(() -> {
             System.out.println("❌ ERROR: El repositorio no encontró a ningún usuario con ese correo/username.");
             return new InvalidCredentialsException();

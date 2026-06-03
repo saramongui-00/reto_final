@@ -1,26 +1,28 @@
 import { userAPI } from "../utils/axios";
 
 export const getUser = async (id) => {
-  const res = await userAPI.get(`/usuarios/${id}`);
+  console.log("🌐 URL que se va a pedir:", `/api/usuarios/${id}`);
+  console.log("🌐 Base URL:", userAPI.defaults.baseURL);
+  const res = await userAPI.get(`/api/usuarios/${id}`);
   return res.data;
 };
 
 export const getAllUsers = async () => {
-  const res = await userAPI.get(`/usuarios`);
+  const res = await userAPI.get(`/api/usuarios`);
   return res.data;
 };
 
 export const updateUser = async (id, userData) => {
-  const res = await userAPI.put(`/usuarios/${id}`, userData);
+  const res = await userAPI.put(`/api/usuarios/${id}/perfil`, userData);
   return res.data;
 };
 
 export const deleteUser = async (id) => {
-  const res = await userAPI.delete(`/usuarios/${id}`);
+  const res = await userAPI.delete(`/api/usuarios/${id}`);
   return res.data;
 };
 
 export const updateUserStatus = async (id, estado) => {
-  const res = await userAPI.patch(`/usuarios/${id}`, { estado });
+  const res = await userAPI.patch(`/api/usuarios/${id}`, { estado });
   return res.data;
 };

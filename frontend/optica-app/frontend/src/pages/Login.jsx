@@ -4,35 +4,45 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
 function Login() {
-  const [form, setForm] = useState({ user: "", password: "" });
+  // 🔥 CAMBIO 1: Cambiamos 'user' por 'username' para que coincida con el DTO de Spring Boot
+  const [form, setForm] = useState({ identifier: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  setError("");
+    setError("");
 
-  if (!form.user.trim() || !form.password.trim()) {
-    setError("Por favor completa todos los campos");
-    return;
-  }
-
-  setLoading(true);
-  try {
-    const data = await loginRequest(form);
-    login(data);
-    if (data.rol === "OPTOMETRA") {
-      navigate("/dashboard");
-    } else {
-      navigate("/user"); // aqui se podria cambiar a otra pantalla, por ahora está el usuario
+    // 🔥 Validamos con 'username'
+    if (!form.identifier.trim() || !form.password.trim()) {
+      setError("Por favor completa todos los campos");
+      return;
     }
-  } catch (err) {
-    setError("Credenciales inválidas");
-  } finally {
-    setLoading(false);
-  }
+
+    setLoading(true);
+    try {
+      const data = await loginRequest(form);
+      
+      // Aquí tu hook 'useAuth' recibe la data y guarda el token en el localStorage
+      login(data);
+
+      // 🔥 CAMBIO 2: Spring Boot devuelve 'role'. Usamos una alternativa por si acaso.
+      const userRole = data.role || data.rol; 
+
+      if (userRole === "OPTOMETRA") {
+        navigate("/dashboard");
+      } else {
+        navigate("/user"); 
+      }
+    } catch (err) {
+      // Si el backend responde con un error específico, lo mostramos, si no, el genérico
+      setError(err.response?.data?.message || "Credenciales inválidas o error de conexión");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -155,7 +165,8 @@ function Login() {
                 }}
                 onFocus={e => e.target.style.borderColor = "#0d5c8f"}
                 onBlur={e => e.target.style.borderColor = "#e2e8f0"}
-                onChange={(e) => setForm({ ...form, user: e.target.value })}
+                // 🔥 Aseguramos que actualice 'username' en el estado
+                onChange={(e) => setForm({ ...form, identifier: e.target.value })}
               />
             </div>
 
@@ -167,21 +178,45 @@ function Login() {
               }}>
                 Contraseña
               </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                style={{
-                  width: "100%", padding: "12px 16px",
-                  border: "1.5px solid #e2e8f0", borderRadius: "10px",
-                  fontSize: "15px", color: "#0a2540",
-                  outline: "none", boxSizing: "border-box",
-                  transition: "border-color 0.2s",
-                  background: "white",
-                }}
-                onFocus={e => e.target.style.borderColor = "#0d5c8f"}
-                onBlur={e => e.target.style.borderColor = "#e2e8f0"}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-              />
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  style={{
+                    width: "100%", padding: "12px 16px", paddingRight: "44px",
+                    border: "1.5px solid #e2e8f0", borderRadius: "10px",
+                    fontSize: "15px", color: "#0a2540",
+                    outline: "none", boxSizing: "border-box",
+                    transition: "border-color 0.2s",
+                    background: "white",
+                  }}
+                  onFocus={e => e.target.style.borderColor = "#0d5c8f"}
+                  onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    border: "none",
+                    background: "transparent",
+                    color: "#64748b",
+                    cursor: "pointer",
+                    fontSize: "16px",
+                    padding: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {showPassword ? "∎" : "◌"}
+                </button>
+              </div>
             </div>
 
             {error && (

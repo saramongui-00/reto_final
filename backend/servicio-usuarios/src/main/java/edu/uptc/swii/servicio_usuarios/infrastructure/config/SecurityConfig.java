@@ -1,6 +1,7 @@
 package edu.uptc.swii.servicio_usuarios.infrastructure.config;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import javax.crypto.spec.SecretKeySpec;
 
@@ -16,18 +17,22 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-    // Inyectamos la clave que pusimos en el properties
+
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ← AÑADIDO
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().authenticated())
@@ -37,16 +42,25 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ¡ESTE ES EL MÉTODO NUEVO QUE SE ENCARGA DE VALIDAR TU FIRMA SIMÉTRICA!
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:5174"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
     @Bean
     public JwtDecoder jwtDecoder() {
         SecretKeySpec secretKey = new SecretKeySpec(
                 jwtSecret.getBytes(StandardCharsets.UTF_8),
-                "HMAC" // Algoritmo correspondiente a Keys.hmacShaKeyFor
-        );
+                "HMAC");
         return NimbusJwtDecoder.withSecretKey(secretKey)
-                // 🔥 AQUÍ LE DECIMOS EL ALGORITMO EXACTO (Cámbialo a HS512 si jwt.io dice
-                // HS512)
                 .macAlgorithm(MacAlgorithm.HS384)
                 .build();
     }
