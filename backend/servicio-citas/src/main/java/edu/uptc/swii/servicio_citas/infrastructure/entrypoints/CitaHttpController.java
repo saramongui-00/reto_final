@@ -10,6 +10,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/citas")
@@ -44,13 +46,20 @@ public class CitaHttpController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping
-    public ResponseEntity<CitaResponse> createCita(@RequestBody CreateCitaRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(createCitaUseCase.execute(request));
+    @PatchMapping("/{id}/cancelar")
+    public ResponseEntity<CitaResponse> handleCancel(@PathVariable String id) {
+        return ResponseEntity.ok(cancelCitaUseCase.execute(id));
     }
 
-    @PatchMapping("/{id}/preparar")
-    public ResponseEntity<CitaResponse> prepararCita(@PathVariable String id) {
-        return ResponseEntity.ok(cambiarEstadoCitaUseCase.marcarComoLista(id));
+    @GetMapping("/paciente/{patientId}")
+    public ResponseEntity<List<CitaResponse>> handleGetByPatient(@PathVariable String patientId) {
+        return ResponseEntity.ok(queryCitasUseCase.findByPatientId(patientId));
+    }
+
+    @GetMapping("/buscar")
+    public ResponseEntity<List<CitaResponse>> handleGetByRange(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fin) {
+        return ResponseEntity.ok(queryCitasUseCase.findByDateRange(inicio, fin));
     }
 }

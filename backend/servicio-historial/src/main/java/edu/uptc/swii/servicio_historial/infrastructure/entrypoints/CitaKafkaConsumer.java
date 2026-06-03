@@ -6,6 +6,7 @@ import edu.uptc.swii.servicio_historial.infrastructure.adapters.CitaEnEsperaEnti
 import edu.uptc.swii.servicio_historial.infrastructure.adapters.SpringDataCitasEnEsperaRepository;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import java.time.LocalDateTime;
 
 @Component
 public class CitaKafkaConsumer {

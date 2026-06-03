@@ -8,9 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-/*
-* citas
-* */
+
 public class Cita {
 
     private final String id;
@@ -27,6 +25,13 @@ public class Cita {
         this.appointment = Objects.requireNonNull(appointment, "La hora de la cita no puede ser nula");
         this.patientId = Objects.requireNonNull(patientId, "El ID del paciente no puede ser nulo");
         this.state = Objects.requireNonNull(state, "El estado de la cita no puede ser nulo");
+    }
+
+    public void cancelar() {
+        if (this.state == AppointmentState.ATENDIDA) {
+            throw new IllegalStateException("No se puede cancelar una cita que ya ha sido ATENDIDA.");
+        }
+        this.state = AppointmentState.CANCELADA;
     }
 
     public CitaListaParaAtencionEvent marcarComoListaParaAtencion() {

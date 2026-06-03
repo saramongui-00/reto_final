@@ -17,7 +17,7 @@ public final class HistorialEntityMapper {
         );
 
         var exams = entity.getEyeExams().stream().map(e -> EyeExam.create(
-                e.appointmentId(), e.examDate(),
+                e.appointmentId(), e.examDate(), "","",
                 new VisualAcuity(new VisualAcuity.EyeAcuity(e.visualAcuity().rightEye().closeupVision(), e.visualAcuity().rightEye().distantVision()), new VisualAcuity.EyeAcuity(e.visualAcuity().leftEye().closeupVision(), e.visualAcuity().leftEye().distantVision()), e.visualAcuity().tool(), e.visualAcuity().observations()),
                 new MotorStatus(
                         e.motorStatus().coverTestSC(),

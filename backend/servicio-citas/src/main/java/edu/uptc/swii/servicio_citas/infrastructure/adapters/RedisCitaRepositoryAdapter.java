@@ -1,13 +1,15 @@
 package edu.uptc.swii.servicio_citas.infrastructure.adapters;
-
+// ... Mantener imports previos y añadir:
 import edu.uptc.swii.servicio_citas.domain.model.Cita;
 import edu.uptc.swii.servicio_citas.domain.repository.CitaRepository;
 import edu.uptc.swii.servicio_citas.infrastructure.mapper.CitaEntityMapper;
-import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
-@Component
+@org.springframework.stereotype.Component
 public class RedisCitaRepositoryAdapter implements CitaRepository {
 
     private final SpringDataRedisCitaRepository redisRepository;
@@ -26,5 +28,12 @@ public class RedisCitaRepositoryAdapter implements CitaRepository {
     @Override
     public Optional<Cita> findById(String id) {
         return redisRepository.findById(id).map(CitaEntityMapper::toDomain);
+    }
+
+    @Override
+    public List<Cita> findAll() {
+        return StreamSupport.stream(redisRepository.findAll().spliterator(), false)
+                .map(CitaEntityMapper::toDomain)
+                .collect(Collectors.toList());
     }
 }

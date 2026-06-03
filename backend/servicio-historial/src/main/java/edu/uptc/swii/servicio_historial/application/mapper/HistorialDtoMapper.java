@@ -27,6 +27,8 @@ public final class HistorialDtoMapper {
                 .map(exam -> new HistorialResponseDto.EyeExamDetailDto(
                         exam.getId(),
                         exam.getExamDate(),
+                        exam.getAppointmentReason(),
+                        exam.getDiagnosis(),
                         mapVisualAcuityToDto(exam.getVisualAcuity()),
                         mapMotorStatusToDto(exam.getMotorStatus()),
                         mapExternalEyeExamToDto(exam.getExternalEyeExam()),
@@ -51,6 +53,8 @@ public final class HistorialDtoMapper {
         return EyeExam.create(
                 dto.appointmentId(),
                 dto.examDate(),
+                dto.appointmentReason(),
+                dto.diagnosis(),
                 mapVisualAcuityToDomain(dto.visualAcuity()),
                 mapMotorStatusToDomain(dto.motorStatus()),
                 mapExternalEyeExamToDomain(dto.externalEyeExam()),
