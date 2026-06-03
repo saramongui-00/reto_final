@@ -35,7 +35,7 @@ export const getEstadosCiviles = async () => {
   return res.data;
 };
 
-export const getPatientById = async (id) => {
-  const res = await patientAPI.get(`/pacientes/${id}`);
+export const getPatientById = async (documento) => {
+  const res = await patientAPI.get(`/pacientes/documento/${documento}`); // <-- Añadimos /documento/
   return res.data;
 };

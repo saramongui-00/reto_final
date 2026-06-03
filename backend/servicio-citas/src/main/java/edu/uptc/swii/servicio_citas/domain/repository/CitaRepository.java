@@ -7,5 +7,6 @@ import java.util.Optional;
 public interface CitaRepository {
     Cita save(Cita cita);
     Optional<Cita> findById(String id);
-    List<Cita> findAll(); // Nuevo método para consultas en memoria
+    List<Cita> findAll();
+    List<Cita> findByState(String state);
 }

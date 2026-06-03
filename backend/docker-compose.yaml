@@ -6,6 +6,8 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - 22181:2181
+    networks:
+      - optica-network
   
   kafka:
     image: confluentinc/cp-kafka:7.4.0
@@ -20,8 +22,9 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - optica-network
 
-  # --- NUEVA BASE DE DATOS UNIFICADA ---
   mysql-db:
     image: mysql:8.0.45
     container_name: mysql-optica
@@ -32,7 +35,36 @@ services:
       MYSQL_DATABASE: optica
     volumes:
       - mysql_data:/var/lib/mysql
+    networks:
+      - optica-network
 
-# Volumen para que la base de datos no pierda información al apagarse
+  mongodb:
+    image: mongo:7.0
+    container_name: optica-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: optica_historial
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - optica-network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: optica-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - optica-network
+
 volumes:
   mysql_data:
+  mongo_data:
+  redis_data:
+
+networks:
+  optica-network:
+    driver: bridge

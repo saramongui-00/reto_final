@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCitas } from "../api/appointment.api";
+import { getCitasEnEspera } from "../api/citas.api"; 
 import { getHistorialByPaciente, createHistorial } from "../api/history.api";
-import { getPatientById } from "../api/patient.api";
+import { getPatient } from "../api/patient.api";
 
 function History() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState({ nombre: "Invitado", rol: "OPTOMETRA" });
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   // Estado para Sala de Espera
@@ -16,16 +17,94 @@ function History() {
   const [showExamForm, setShowExamForm] = useState(false);
 
   // Estado para el formulario de examen
-  const [personalBackground, setPersonalBackground] = useState("");
+  const [personalBackground, setPersonalBackground] = useState({
+    personalHistory: "",
+    familyHistory: "",
+    ocularHistory: "",
+    surgicalHistory: "",
+    medications: "",
+    allergies: "",
+    observations: "",
+  });
   const [eyeExam, setEyeExam] = useState({
+    appointmentId: "",
+    examDate: new Date().toISOString().slice(0, 16),
     appointmentReason: "",
     diagnosis: "",
-    visualAcuity: { od: "", oi: "" },
-    motorStatus: { resultado: "" },
-    externalEyeExam: { resultado: "" },
-    ophthalmoscopy: { resultado: "" },
-    keratometry: { od: "", oi: "" },
-    refraction: { subjetivo: "" },
+    visualAcuity: {
+      rightEye: { closeupVision: "", distantVision: "" },
+      leftEye: { closeupVision: "", distantVision: "" },
+      tool: "Snellen",
+      observations: "",
+    },
+    motorStatus: {
+      coverTestSC: "",
+      coverTestCC: "",
+      ppc: "",
+      closeupVision: "",
+      dominantEye: "DERECHO",
+      observations: "",
+    },
+    externalEyeExam: {
+      rightEye: {
+        pupil: "",
+        conjunctiva: "",
+        cristallineLens: "",
+        anteriorChamber: "",
+        eyelids: "",
+        cornea: "",
+        lacrimalPuncta: "",
+        iris: "",
+      },
+      leftEye: {
+        pupil: "",
+        conjunctiva: "",
+        cristallineLens: "",
+        anteriorChamber: "",
+        eyelids: "",
+        cornea: "",
+        lacrimalPuncta: "",
+        iris: "",
+      },
+      observations: "",
+    },
+    ophthalmoscopy: {
+      rightEye: {
+        opticDisc: "",
+        cupping: "",
+        macula: "",
+        rav: "",
+        media: "",
+        fovealBrightness: "",
+      },
+      leftEye: {
+        opticDisc: "",
+        cupping: "",
+        macula: "",
+        rav: "",
+        media: "",
+        fovealBrightness: "",
+      },
+      observations: "",
+    },
+    keratometry: {
+      rightEye: { horizontal: "", vertical: "", axis: "", sights: "", astigmatism: "" },
+      leftEye: { horizontal: "", vertical: "", axis: "", sights: "", astigmatism: "" },
+    },
+    refraction: {
+      staticRetinoscopy: {
+        rightEye: { horizontal: "", vertical: "", axis: "" },
+        leftEye: { horizontal: "", vertical: "", axis: "" },
+      },
+      dynamicRetinoscopy: {
+        rightEye: { horizontal: "", vertical: "", axis: "" },
+        leftEye: { horizontal: "", vertical: "", axis: "" },
+      },
+      subjective: {
+        rightEye: { horizontal: "", vertical: "", axis: "" },
+        leftEye: { horizontal: "", vertical: "", axis: "" },
+      },
+    },
     rx: {
       prescriptionRE: "",
       prescriptionLE: "",
@@ -40,36 +119,70 @@ function History() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [historyList, setHistoryList] = useState([]);
   const [selectedExam, setSelectedExam] = useState(null);
-
-  // Cargar usuario y lista de espera al iniciar
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      setUser({ id: payload.id, nombre: payload.nombre, rol: payload.rol });
+  const inicializarVista = async () => {
+    try {
+      await loadWaitingList();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-    loadWaitingList();
-  }, []);
+  };
+
+  inicializarVista();
+}, []);
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate("/");
   };
 
   // Cargar citas en estado LISTA_PARA_ATENCION
-  const loadWaitingList = async () => {
-    try {
-      const citas = await getCitas();
-      const waiting = citas.filter(c => c.state === "LISTA_PARA_ATENCION");
-      const enriched = await Promise.all(waiting.map(async (cita) => {
-        const patient = await getPatientById(cita.patientId);
-        return { ...cita, patient };
-      }));
-      setWaitingList(enriched);
-    } catch (error) {
-      console.error("Error cargando lista de espera:", error);
+const loadWaitingList = async () => {
+  try {
+    console.log("1. Solicitando citas en espera al backend...");
+    const citasEnEspera = await getCitasEnEspera(); 
+    console.log("2. Citas recibidas desde el back:", citasEnEspera);
+
+    if (!citasEnEspera || citasEnEspera.length === 0) {
+      setWaitingList([]);
+      return;
     }
-  };
+
+    const enriched = await Promise.all(
+      citasEnEspera.map(async (cita) => {
+        try {
+          if (!cita.patientId) {
+            return { ...cita, patient: { nombre: "Sin documento", apellido: "" } };
+          }
+          
+          // Creamos una carrera: si el servicio de pacientes tarda más de 1500ms, abortamos la consulta de ese paciente
+          const patientPromise = getPatient(cita.patientId); // o getPatientById según la opción que elegiste
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Timeout")), 1500)
+          );
+
+          // Ejecutamos la que responda primero
+          const patient = await Promise.race([patientPromise, timeoutPromise]);
+          return { ...cita, patient };
+
+        } catch (pError) {
+          console.warn(`No se pudo enriquecer la cita ${cita.id} a tiempo:`, pError.message);
+          // Si el microservicio de pacientes se cuelga, inventamos datos para que el médico vea la cita en la tabla
+          return { 
+            ...cita, 
+            patient: { nombre: "Paciente", apellido: `Doc: ${cita.patientId} (Lento/Error)` } 
+          };
+        }
+      })
+    );
+    console.log("3. Lista de espera enriquecida con éxito:", enriched);
+    setWaitingList(enriched);
+  } catch (error) {
+    console.error("Error crítico cargando la sala de espera virtual:", error);
+    setWaitingList([]);
+  }
+};
 
   // Atender paciente
   const handleAtender = async (cita, patient) => {
@@ -77,8 +190,9 @@ function History() {
     setSelectedCitaId(cita.id);
     setShowExamForm(true);
     
+    const pacienteKey = patient?.documento ?? patient?.id;
     try {
-      const historial = await getHistorialByPaciente(patient.id);
+      const historial = await getHistorialByPaciente(pacienteKey);
       setHistoryList(historial?.eyeExams || []);
     } catch (error) {
       console.error("Error cargando historial:", error);
@@ -88,23 +202,157 @@ function History() {
 
   // Guardar historial
   const handleSaveHistory = async () => {
+    const pacienteKey = selectedPatient?.documento ?? selectedPatient?.id;
+    if (!pacienteKey) {
+      alert("No se pudo guardar: el paciente no tiene identificador válido.");
+      return;
+    }
+
     const payload = {
-      pacienteId: selectedPatient.id,
-      personalBackground: personalBackground,
+      pacienteId: pacienteKey,
+      personalBackground: {
+        personalHistory: personalBackground.personalHistory,
+        familyHistory: personalBackground.familyHistory,
+        ocularHistory: personalBackground.ocularHistory,
+        surgicalHistory: personalBackground.surgicalHistory,
+        medications: personalBackground.medications,
+        allergies: personalBackground.allergies,
+        observations: personalBackground.observations,
+      },
       eyeExam: {
+        appointmentId: eyeExam.appointmentId || selectedCitaId || "",
+        examDate: eyeExam.examDate,
         appointmentReason: eyeExam.appointmentReason,
         diagnosis: eyeExam.diagnosis,
-        visualAcuity: eyeExam.visualAcuity,
-        motorStatus: eyeExam.motorStatus,
-        externalEyeExam: eyeExam.externalEyeExam,
-        ophthalmoscopy: eyeExam.ophthalmoscopy,
-        keratometry: eyeExam.keratometry,
-        refraction: eyeExam.refraction,
-        rx: eyeExam.rx,
+        visualAcuity: {
+          rightEye: {
+            closeupVision: eyeExam.visualAcuity.rightEye.closeupVision,
+            distantVision: eyeExam.visualAcuity.rightEye.distantVision,
+          },
+          leftEye: {
+            closeupVision: eyeExam.visualAcuity.leftEye.closeupVision,
+            distantVision: eyeExam.visualAcuity.leftEye.distantVision,
+          },
+          tool: eyeExam.visualAcuity.tool || "Snellen",
+          observations: eyeExam.visualAcuity.observations,
+        },
+        motorStatus: {
+          coverTestSC: eyeExam.motorStatus.coverTestSC,
+          coverTestCC: eyeExam.motorStatus.coverTestCC,
+          ppc: eyeExam.motorStatus.ppc,
+          closeupVision: eyeExam.motorStatus.closeupVision,
+          dominantEye: eyeExam.motorStatus.dominantEye,
+          observations: eyeExam.motorStatus.observations,
+        },
+        externalEyeExam: {
+          rightEye: {
+            pupil: eyeExam.externalEyeExam.rightEye.pupil,
+            conjunctiva: eyeExam.externalEyeExam.rightEye.conjunctiva,
+            cristallineLens: eyeExam.externalEyeExam.rightEye.cristallineLens,
+            anteriorChamber: eyeExam.externalEyeExam.rightEye.anteriorChamber,
+            eyelids: eyeExam.externalEyeExam.rightEye.eyelids,
+            cornea: eyeExam.externalEyeExam.rightEye.cornea,
+            lacrimalPuncta: eyeExam.externalEyeExam.rightEye.lacrimalPuncta,
+            iris: eyeExam.externalEyeExam.rightEye.iris,
+          },
+          leftEye: {
+            pupil: eyeExam.externalEyeExam.leftEye.pupil,
+            conjunctiva: eyeExam.externalEyeExam.leftEye.conjunctiva,
+            cristallineLens: eyeExam.externalEyeExam.leftEye.cristallineLens,
+            anteriorChamber: eyeExam.externalEyeExam.leftEye.anteriorChamber,
+            eyelids: eyeExam.externalEyeExam.leftEye.eyelids,
+            cornea: eyeExam.externalEyeExam.leftEye.cornea,
+            lacrimalPuncta: eyeExam.externalEyeExam.leftEye.lacrimalPuncta,
+            iris: eyeExam.externalEyeExam.leftEye.iris,
+          },
+          observations: eyeExam.externalEyeExam.observations,
+        },
+        ophthalmoscopy: {
+          rightEye: {
+            opticDisc: eyeExam.ophthalmoscopy.rightEye.opticDisc,
+            cupping: eyeExam.ophthalmoscopy.rightEye.cupping,
+            macula: eyeExam.ophthalmoscopy.rightEye.macula,
+            rav: eyeExam.ophthalmoscopy.rightEye.rav,
+            media: eyeExam.ophthalmoscopy.rightEye.media,
+            fovealBrightness: eyeExam.ophthalmoscopy.rightEye.fovealBrightness,
+          },
+          leftEye: {
+            opticDisc: eyeExam.ophthalmoscopy.leftEye.opticDisc,
+            cupping: eyeExam.ophthalmoscopy.leftEye.cupping,
+            macula: eyeExam.ophthalmoscopy.leftEye.macula,
+            rav: eyeExam.ophthalmoscopy.leftEye.rav,
+            media: eyeExam.ophthalmoscopy.leftEye.media,
+            fovealBrightness: eyeExam.ophthalmoscopy.leftEye.fovealBrightness,
+          },
+          observations: eyeExam.ophthalmoscopy.observations,
+        },
+        keratometry: {
+          rightEye: {
+            horizontal: eyeExam.keratometry.rightEye.horizontal,
+            vertical: eyeExam.keratometry.rightEye.vertical,
+            axis: eyeExam.keratometry.rightEye.axis,
+            sights: eyeExam.keratometry.rightEye.sights,
+            astigmatism: eyeExam.keratometry.rightEye.astigmatism,
+          },
+          leftEye: {
+            horizontal: eyeExam.keratometry.leftEye.horizontal,
+            vertical: eyeExam.keratometry.leftEye.vertical,
+            axis: eyeExam.keratometry.leftEye.axis,
+            sights: eyeExam.keratometry.leftEye.sights,
+            astigmatism: eyeExam.keratometry.leftEye.astigmatism,
+          },
+        },
+        refraction: {
+          staticRetinoscopy: {
+            rightEye: {
+              horizontal: eyeExam.refraction.staticRetinoscopy.rightEye.horizontal,
+              vertical: eyeExam.refraction.staticRetinoscopy.rightEye.vertical,
+              axis: eyeExam.refraction.staticRetinoscopy.rightEye.axis,
+            },
+            leftEye: {
+              horizontal: eyeExam.refraction.staticRetinoscopy.leftEye.horizontal,
+              vertical: eyeExam.refraction.staticRetinoscopy.leftEye.vertical,
+              axis: eyeExam.refraction.staticRetinoscopy.leftEye.axis,
+            },
+          },
+          dynamicRetinoscopy: {
+            rightEye: {
+              horizontal: eyeExam.refraction.dynamicRetinoscopy.rightEye.horizontal,
+              vertical: eyeExam.refraction.dynamicRetinoscopy.rightEye.vertical,
+              axis: eyeExam.refraction.dynamicRetinoscopy.rightEye.axis,
+            },
+            leftEye: {
+              horizontal: eyeExam.refraction.dynamicRetinoscopy.leftEye.horizontal,
+              vertical: eyeExam.refraction.dynamicRetinoscopy.leftEye.vertical,
+              axis: eyeExam.refraction.dynamicRetinoscopy.leftEye.axis,
+            },
+          },
+          subjective: {
+            rightEye: {
+              horizontal: eyeExam.refraction.subjective.rightEye.horizontal,
+              vertical: eyeExam.refraction.subjective.rightEye.vertical,
+              axis: eyeExam.refraction.subjective.rightEye.axis,
+            },
+            leftEye: {
+              horizontal: eyeExam.refraction.subjective.leftEye.horizontal,
+              vertical: eyeExam.refraction.subjective.leftEye.vertical,
+              axis: eyeExam.refraction.subjective.leftEye.axis,
+            },
+          },
+        },
+        rx: {
+          prescriptionRE: eyeExam.rx.prescriptionRE,
+          prescriptionLE: eyeExam.rx.prescriptionLE,
+          paramMounting: eyeExam.rx.paramMounting,
+          lensType: eyeExam.rx.lensType,
+          pupillaryDistance: eyeExam.rx.pupillaryDistance,
+          observations: eyeExam.rx.observations,
+        },
       },
     };
 
     try {
+      console.log("Payload historial:", payload);
       await createHistorial(payload);
       alert("Historial guardado exitosamente");
       setShowExamForm(false);
@@ -114,21 +362,105 @@ function History() {
       loadWaitingList();
     } catch (error) {
       console.error("Error guardando historial:", error);
-      alert("Error al guardar el historial");
+      if (error?.response) {
+        console.error("Response status:", error.response.status);
+        console.error("Response data:", error.response.data);
+        alert(`Error al guardar el historial: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+      } else {
+        alert("Error al guardar el historial: comprobar conexión o CORS (ver consola)");
+      }
     }
   };
 
   const resetForm = () => {
-    setPersonalBackground("");
+    setPersonalBackground({
+      personalHistory: "",
+      familyHistory: "",
+      ocularHistory: "",
+      surgicalHistory: "",
+      medications: "",
+      allergies: "",
+      observations: "",
+    });
     setEyeExam({
+      appointmentId: "",
+      examDate: new Date().toISOString().slice(0, 16),
       appointmentReason: "",
       diagnosis: "",
-      visualAcuity: { od: "", oi: "" },
-      motorStatus: { resultado: "" },
-      externalEyeExam: { resultado: "" },
-      ophthalmoscopy: { resultado: "" },
-      keratometry: { od: "", oi: "" },
-      refraction: { subjetivo: "" },
+      visualAcuity: {
+        rightEye: { closeupVision: "", distantVision: "" },
+        leftEye: { closeupVision: "", distantVision: "" },
+        tool: "Snellen",
+        observations: "",
+      },
+      motorStatus: {
+        coverTestSC: "",
+        coverTestCC: "",
+        ppc: "",
+        closeupVision: "",
+        dominantEye: "",
+        observations: "",
+      },
+      externalEyeExam: {
+        rightEye: {
+          pupil: "",
+          conjunctiva: "",
+          cristallineLens: "",
+          anteriorChamber: "",
+          eyelids: "",
+          cornea: "",
+          lacrimalPuncta: "",
+          iris: "",
+        },
+        leftEye: {
+          pupil: "",
+          conjunctiva: "",
+          cristallineLens: "",
+          anteriorChamber: "",
+          eyelids: "",
+          cornea: "",
+          lacrimalPuncta: "",
+          iris: "",
+        },
+        observations: "",
+      },
+      ophthalmoscopy: {
+        rightEye: {
+          opticDisc: "",
+          cupping: "",
+          macula: "",
+          rav: "",
+          media: "",
+          fovealBrightness: "",
+        },
+        leftEye: {
+          opticDisc: "",
+          cupping: "",
+          macula: "",
+          rav: "",
+          media: "",
+          fovealBrightness: "",
+        },
+        observations: "",
+      },
+      keratometry: {
+        rightEye: { horizontal: "", vertical: "", axis: "", sights: "", astigmatism: "" },
+        leftEye: { horizontal: "", vertical: "", axis: "", sights: "", astigmatism: "" },
+      },
+      refraction: {
+        staticRetinoscopy: {
+          rightEye: { horizontal: "", vertical: "", axis: "" },
+          leftEye: { horizontal: "", vertical: "", axis: "" },
+        },
+        dynamicRetinoscopy: {
+          rightEye: { horizontal: "", vertical: "", axis: "" },
+          leftEye: { horizontal: "", vertical: "", axis: "" },
+        },
+        subjective: {
+          rightEye: { horizontal: "", vertical: "", axis: "" },
+          leftEye: { horizontal: "", vertical: "", axis: "" },
+        },
+      },
       rx: {
         prescriptionRE: "",
         prescriptionLE: "",
@@ -140,24 +472,27 @@ function History() {
     });
   };
 
-  const handleInputChange = (section, field, value) => {
-    if (section === "rx") {
-      setEyeExam(prev => ({
+  const handleInputChange = (path, value) => {
+    if (path[0] === "personalBackground") {
+      setPersonalBackground((prev) => ({
         ...prev,
-        rx: { ...prev.rx, [field]: value }
+        [path[1]]: value,
       }));
-    } else if (section === "visualAcuity" || section === "motorStatus" || section === "externalEyeExam" || 
-               section === "ophthalmoscopy" || section === "keratometry" || section === "refraction") {
-      setEyeExam(prev => ({
-        ...prev,
-        [section]: { ...prev[section], [field]: value }
-      }));
-    } else {
-      setEyeExam(prev => ({ ...prev, [field]: value }));
+      return;
     }
+
+    setEyeExam((prev) => {
+      const next = JSON.parse(JSON.stringify(prev));
+      let node = next;
+      for (let i = 0; i < path.length - 1; i += 1) {
+        node = node[path[i]];
+      }
+      node[path[path.length - 1]] = value;
+      return next;
+    });
   };
 
-  if (!user) {
+  if (loading) {
     return (
       <div style={{
         minHeight: "100vh", display: "flex",
@@ -168,6 +503,7 @@ function History() {
       </div>
     );
   }
+
 
   return (
     <div style={{
@@ -363,123 +699,452 @@ function History() {
                 <label style={{ display: "block", fontWeight: 500, marginBottom: "8px", color: "#0a2540" }}>
                   Antecedentes Personales
                 </label>
-                <textarea
-                  rows="4"
-                  value={personalBackground}
-                  onChange={(e) => setPersonalBackground(e.target.value)}
-                  style={{
-                    width: "100%", padding: "12px", border: "1px solid #e2e8f0",
-                    borderRadius: "8px", fontSize: "14px", fontFamily: "inherit",
-                  }}
-                  placeholder="Hipertensión, diabetes, uso de lentes, cirugías previas..."
-                />
+                <div style={{ display: "grid", gap: "12px" }}>
+                  <input
+                    type="text"
+                    value={personalBackground.personalHistory}
+                    onChange={(e) => handleInputChange(["personalBackground", "personalHistory"], e.target.value)}
+                    style={{ width: "100%", padding: "10px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px" }}
+                    placeholder="Antecedentes personales"
+                  />
+                  <input
+                    type="text"
+                    value={personalBackground.familyHistory}
+                    onChange={(e) => handleInputChange(["personalBackground", "familyHistory"], e.target.value)}
+                    style={{ width: "100%", padding: "10px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px" }}
+                    placeholder="Antecedentes familiares"
+                  />
+                  <input
+                    type="text"
+                    value={personalBackground.ocularHistory}
+                    onChange={(e) => handleInputChange(["personalBackground", "ocularHistory"], e.target.value)}
+                    style={{ width: "100%", padding: "10px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px" }}
+                    placeholder="Antecedentes oculares"
+                  />
+                  <input
+                    type="text"
+                    value={personalBackground.surgicalHistory}
+                    onChange={(e) => handleInputChange(["personalBackground", "surgicalHistory"], e.target.value)}
+                    style={{ width: "100%", padding: "10px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px" }}
+                    placeholder="Antecedentes quirúrgicos"
+                  />
+                  <input
+                    type="text"
+                    value={personalBackground.medications}
+                    onChange={(e) => handleInputChange(["personalBackground", "medications"], e.target.value)}
+                    style={{ width: "100%", padding: "10px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px" }}
+                    placeholder="Medicaciones"
+                  />
+                  <input
+                    type="text"
+                    value={personalBackground.allergies}
+                    onChange={(e) => handleInputChange(["personalBackground", "allergies"], e.target.value)}
+                    style={{ width: "100%", padding: "10px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px" }}
+                    placeholder="Alergias"
+                  />
+                  <textarea
+                    rows="3"
+                    value={personalBackground.observations}
+                    onChange={(e) => handleInputChange(["personalBackground", "observations"], e.target.value)}
+                    style={{ width: "100%", padding: "12px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px", fontFamily: "inherit" }}
+                    placeholder="Observaciones generales"
+                  />
+                </div>
               </div>
 
-              {/* Motivo de Consulta */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "24px" }}>
+                <div>
+                  <label style={{ display: "block", fontWeight: 500, marginBottom: "8px", color: "#0a2540" }}>
+                    ID de la Cita
+                  </label>
+                  <input
+                    type="text"
+                    value={eyeExam.appointmentId || selectedCitaId || ""}
+                    onChange={(e) => handleInputChange(["appointmentId"], e.target.value)}
+                    style={{ width: "100%", padding: "10px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px" }}
+                    placeholder="UUID de la cita"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontWeight: 500, marginBottom: "8px", color: "#0a2540" }}>
+                    Fecha del examen
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={eyeExam.examDate}
+                    onChange={(e) => handleInputChange(["examDate"], e.target.value)}
+                    style={{ width: "100%", padding: "10px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px" }}
+                  />
+                </div>
+              </div>
+
+              {/* Motivo de Consulta y Diagnóstico */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "24px" }}>
+                <div>
+                  <label style={{ display: "block", fontWeight: 500, marginBottom: "8px", color: "#0a2540" }}>
+                    Motivo de Consulta
+                  </label>
+                  <input
+                    type="text"
+                    value={eyeExam.appointmentReason}
+                    onChange={(e) => handleInputChange(["appointmentReason"], e.target.value)}
+                    style={{
+                      width: "100%", padding: "10px", border: "1px solid #e2e8f0",
+                      borderRadius: "8px", fontSize: "14px",
+                    }}
+                    placeholder="Visión borrosa, fatiga ocular..."
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontWeight: 500, marginBottom: "8px", color: "#0a2540" }}>
+                    Diagnóstico
+                  </label>
+                  <input
+                    type="text"
+                    value={eyeExam.diagnosis}
+                    onChange={(e) => handleInputChange(["diagnosis"], e.target.value)}
+                    style={{
+                      width: "100%", padding: "10px", border: "1px solid #e2e8f0",
+                      borderRadius: "8px", fontSize: "14px",
+                    }}
+                    placeholder="Diagnóstico del paciente"
+                  />
+                </div>
+              </div>
+
+              {/* Agudeza Visual */}
               <div style={{ marginBottom: "24px" }}>
-                <label style={{ display: "block", fontWeight: 500, marginBottom: "8px", color: "#0a2540" }}>
-                  Motivo de Consulta
-                </label>
-                <input
-                  type="text"
-                  value={eyeExam.appointmentReason}
-                  onChange={(e) => handleInputChange(null, "appointmentReason", e.target.value)}
-                  style={{
-                    width: "100%", padding: "10px", border: "1px solid #e2e8f0",
-                    borderRadius: "8px", fontSize: "14px",
-                  }}
-                  placeholder="Visión borrosa, fatiga ocular, dolor de cabeza..."
+                <h3 style={{ fontSize: "16px", marginBottom: "12px", color: "#0a2540" }}>Agudeza Visual</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                  <input type="text" placeholder="OD Cerca" value={eyeExam.visualAcuity.rightEye.closeupVision}
+                    onChange={(e) => handleInputChange(["visualAcuity", "rightEye", "closeupVision"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                  <input type="text" placeholder="OI Cerca" value={eyeExam.visualAcuity.leftEye.closeupVision}
+                    onChange={(e) => handleInputChange(["visualAcuity", "leftEye", "closeupVision"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                  <input type="text" placeholder="OD Distancia" value={eyeExam.visualAcuity.rightEye.distantVision}
+                    onChange={(e) => handleInputChange(["visualAcuity", "rightEye", "distantVision"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                  <input type="text" placeholder="OI Distancia" value={eyeExam.visualAcuity.leftEye.distantVision}
+                    onChange={(e) => handleInputChange(["visualAcuity", "leftEye", "distantVision"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <input type="text" placeholder="Herramienta (ej: Snellen)" value={eyeExam.visualAcuity.tool}
+                    onChange={(e) => handleInputChange(["visualAcuity", "tool"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                  <input type="text" placeholder="Observaciones agudeza" value={eyeExam.visualAcuity.observations}
+                    onChange={(e) => handleInputChange(["visualAcuity", "observations"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                </div>
+              </div>
+
+              {/* Estado Motor */}
+              <div style={{ marginBottom: "24px" }}>
+                <h3 style={{ fontSize: "16px", marginBottom: "12px", color: "#0a2540" }}>Estado Motor</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                  <input type="text" placeholder="Cover Test SC" value={eyeExam.motorStatus.coverTestSC}
+                    onChange={(e) => handleInputChange(["motorStatus", "coverTestSC"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                  <input type="text" placeholder="Cover Test CC" value={eyeExam.motorStatus.coverTestCC}
+                    onChange={(e) => handleInputChange(["motorStatus", "coverTestCC"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                  <input type="text" placeholder="PPC" value={eyeExam.motorStatus.ppc}
+                    onChange={(e) => handleInputChange(["motorStatus", "ppc"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                  <input type="text" placeholder="Closeup Vision" value={eyeExam.motorStatus.closeupVision}
+                    onChange={(e) => handleInputChange(["motorStatus", "closeupVision"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <select value={eyeExam.motorStatus.dominantEye}
+                    onChange={(e) => handleInputChange(["motorStatus", "dominantEye"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }}>
+                    <option value="">Selecciona ojo dominante</option>
+                    <option value="DERECHO">DERECHO</option>
+                    <option value="IZQUIERDO">IZQUIERDO</option>
+                  </select>
+                  <input type="text" placeholder="Observaciones motor" value={eyeExam.motorStatus.observations}
+                    onChange={(e) => handleInputChange(["motorStatus", "observations"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                </div>
+              </div>
+
+              {/* Examen Ocular Externo */}
+              <div style={{ marginBottom: "24px" }}>
+                <h3 style={{ fontSize: "16px", marginBottom: "12px", color: "#0a2540" }}>Examen Ocular Externo</h3>
+                <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "6px", marginBottom: "12px" }}>
+                  <p style={{ fontWeight: 500, marginBottom: "8px" }}>OD (Ojo Derecho)</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                    <input type="text" placeholder="Pupila" value={eyeExam.externalEyeExam.rightEye.pupil}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "rightEye", "pupil"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Conjuntiva" value={eyeExam.externalEyeExam.rightEye.conjunctiva}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "rightEye", "conjunctiva"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Cristalino" value={eyeExam.externalEyeExam.rightEye.cristallineLens}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "rightEye", "cristallineLens"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Cámara anterior" value={eyeExam.externalEyeExam.rightEye.anteriorChamber}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "rightEye", "anteriorChamber"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Párpados" value={eyeExam.externalEyeExam.rightEye.eyelids}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "rightEye", "eyelids"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Córnea" value={eyeExam.externalEyeExam.rightEye.cornea}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "rightEye", "cornea"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Puntualacrimal" value={eyeExam.externalEyeExam.rightEye.lacrimalPuncta}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "rightEye", "lacrimalPuncta"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Iris" value={eyeExam.externalEyeExam.rightEye.iris}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "rightEye", "iris"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                  </div>
+                </div>
+                <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "6px", marginBottom: "12px" }}>
+                  <p style={{ fontWeight: 500, marginBottom: "8px" }}>OI (Ojo Izquierdo)</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                    <input type="text" placeholder="Pupila" value={eyeExam.externalEyeExam.leftEye.pupil}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "leftEye", "pupil"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Conjuntiva" value={eyeExam.externalEyeExam.leftEye.conjunctiva}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "leftEye", "conjunctiva"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Cristalino" value={eyeExam.externalEyeExam.leftEye.cristallineLens}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "leftEye", "cristallineLens"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Cámara anterior" value={eyeExam.externalEyeExam.leftEye.anteriorChamber}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "leftEye", "anteriorChamber"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Párpados" value={eyeExam.externalEyeExam.leftEye.eyelids}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "leftEye", "eyelids"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Córnea" value={eyeExam.externalEyeExam.leftEye.cornea}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "leftEye", "cornea"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Puntualacrimal" value={eyeExam.externalEyeExam.leftEye.lacrimalPuncta}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "leftEye", "lacrimalPuncta"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Iris" value={eyeExam.externalEyeExam.leftEye.iris}
+                      onChange={(e) => handleInputChange(["externalEyeExam", "leftEye", "iris"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                  </div>
+                </div>
+                <input type="text" placeholder="Observaciones examen externo" value={eyeExam.externalEyeExam.observations}
+                  onChange={(e) => handleInputChange(["externalEyeExam", "observations"], e.target.value)}
+                  style={{ width: "100%", padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+              </div>
+
+              {/* Oftalmoscopía */}
+              <div style={{ marginBottom: "24px" }}>
+                <h3 style={{ fontSize: "16px", marginBottom: "12px", color: "#0a2540" }}>Oftalmoscopía</h3>
+                <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "6px", marginBottom: "12px" }}>
+                  <p style={{ fontWeight: 500, marginBottom: "8px" }}>OD</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                    <input type="text" placeholder="Disco óptico" value={eyeExam.ophthalmoscopy.rightEye.opticDisc}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "rightEye", "opticDisc"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Cupping" value={eyeExam.ophthalmoscopy.rightEye.cupping}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "rightEye", "cupping"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Mácula" value={eyeExam.ophthalmoscopy.rightEye.macula}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "rightEye", "macula"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="RAV" value={eyeExam.ophthalmoscopy.rightEye.rav}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "rightEye", "rav"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Media" value={eyeExam.ophthalmoscopy.rightEye.media}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "rightEye", "media"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Brillo foveal" value={eyeExam.ophthalmoscopy.rightEye.fovealBrightness}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "rightEye", "fovealBrightness"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                  </div>
+                </div>
+                <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "6px", marginBottom: "12px" }}>
+                  <p style={{ fontWeight: 500, marginBottom: "8px" }}>OI</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                    <input type="text" placeholder="Disco óptico" value={eyeExam.ophthalmoscopy.leftEye.opticDisc}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "leftEye", "opticDisc"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Cupping" value={eyeExam.ophthalmoscopy.leftEye.cupping}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "leftEye", "cupping"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Mácula" value={eyeExam.ophthalmoscopy.leftEye.macula}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "leftEye", "macula"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="RAV" value={eyeExam.ophthalmoscopy.leftEye.rav}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "leftEye", "rav"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Media" value={eyeExam.ophthalmoscopy.leftEye.media}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "leftEye", "media"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Brillo foveal" value={eyeExam.ophthalmoscopy.leftEye.fovealBrightness}
+                      onChange={(e) => handleInputChange(["ophthalmoscopy", "leftEye", "fovealBrightness"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                  </div>
+                </div>
+                <input type="text" placeholder="Observaciones oftalmoscopía" value={eyeExam.ophthalmoscopy.observations}
+                  onChange={(e) => handleInputChange(["ophthalmoscopy", "observations"], e.target.value)}
+                  style={{ width: "100%", padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+              </div>
+
+              {/* Queratometría */}
+              <div style={{ marginBottom: "24px" }}>
+                <h3 style={{ fontSize: "16px", marginBottom: "12px", color: "#0a2540" }}>Queratometría</h3>
+                <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "6px", marginBottom: "12px" }}>
+                  <p style={{ fontWeight: 500, marginBottom: "8px" }}>OD</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                    <input type="text" placeholder="Horizontal" value={eyeExam.keratometry.rightEye.horizontal}
+                      onChange={(e) => handleInputChange(["keratometry", "rightEye", "horizontal"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Vertical" value={eyeExam.keratometry.rightEye.vertical}
+                      onChange={(e) => handleInputChange(["keratometry", "rightEye", "vertical"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Eje" value={eyeExam.keratometry.rightEye.axis}
+                      onChange={(e) => handleInputChange(["keratometry", "rightEye", "axis"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Miras" value={eyeExam.keratometry.rightEye.sights}
+                      onChange={(e) => handleInputChange(["keratometry", "rightEye", "sights"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Astigmatismo" value={eyeExam.keratometry.rightEye.astigmatism}
+                      onChange={(e) => handleInputChange(["keratometry", "rightEye", "astigmatism"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                  </div>
+                </div>
+                <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "6px", marginBottom: "12px" }}>
+                  <p style={{ fontWeight: 500, marginBottom: "8px" }}>OI</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                    <input type="text" placeholder="Horizontal" value={eyeExam.keratometry.leftEye.horizontal}
+                      onChange={(e) => handleInputChange(["keratometry", "leftEye", "horizontal"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Vertical" value={eyeExam.keratometry.leftEye.vertical}
+                      onChange={(e) => handleInputChange(["keratometry", "leftEye", "vertical"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Eje" value={eyeExam.keratometry.leftEye.axis}
+                      onChange={(e) => handleInputChange(["keratometry", "leftEye", "axis"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Miras" value={eyeExam.keratometry.leftEye.sights}
+                      onChange={(e) => handleInputChange(["keratometry", "leftEye", "sights"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    <input type="text" placeholder="Astigmatismo" value={eyeExam.keratometry.leftEye.astigmatism}
+                      onChange={(e) => handleInputChange(["keratometry", "leftEye", "astigmatism"], e.target.value)}
+                      style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Refracción */}
+              <div style={{ marginBottom: "24px" }}>
+                <h3 style={{ fontSize: "16px", marginBottom: "12px", color: "#0a2540" }}>Refracción</h3>
+                
+                <div style={{ marginBottom: "16px" }}>
+                  <h4 style={{ fontSize: "14px", marginBottom: "8px", color: "#64748b" }}>Retinoscopia Estática</h4>
+                  <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "6px", marginBottom: "8px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                      <input type="text" placeholder="OD Horizontal" value={eyeExam.refraction.staticRetinoscopy.rightEye.horizontal}
+                        onChange={(e) => handleInputChange(["refraction", "staticRetinoscopy", "rightEye", "horizontal"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OD Vertical" value={eyeExam.refraction.staticRetinoscopy.rightEye.vertical}
+                        onChange={(e) => handleInputChange(["refraction", "staticRetinoscopy", "rightEye", "vertical"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OD Eje" value={eyeExam.refraction.staticRetinoscopy.rightEye.axis}
+                        onChange={(e) => handleInputChange(["refraction", "staticRetinoscopy", "rightEye", "axis"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OI Horizontal" value={eyeExam.refraction.staticRetinoscopy.leftEye.horizontal}
+                        onChange={(e) => handleInputChange(["refraction", "staticRetinoscopy", "leftEye", "horizontal"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OI Vertical" value={eyeExam.refraction.staticRetinoscopy.leftEye.vertical}
+                        onChange={(e) => handleInputChange(["refraction", "staticRetinoscopy", "leftEye", "vertical"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OI Eje" value={eyeExam.refraction.staticRetinoscopy.leftEye.axis}
+                        onChange={(e) => handleInputChange(["refraction", "staticRetinoscopy", "leftEye", "axis"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <h4 style={{ fontSize: "14px", marginBottom: "8px", color: "#64748b" }}>Retinoscopia Dinámica</h4>
+                  <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "6px", marginBottom: "8px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                      <input type="text" placeholder="OD Horizontal" value={eyeExam.refraction.dynamicRetinoscopy.rightEye.horizontal}
+                        onChange={(e) => handleInputChange(["refraction", "dynamicRetinoscopy", "rightEye", "horizontal"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OD Vertical" value={eyeExam.refraction.dynamicRetinoscopy.rightEye.vertical}
+                        onChange={(e) => handleInputChange(["refraction", "dynamicRetinoscopy", "rightEye", "vertical"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OD Eje" value={eyeExam.refraction.dynamicRetinoscopy.rightEye.axis}
+                        onChange={(e) => handleInputChange(["refraction", "dynamicRetinoscopy", "rightEye", "axis"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OI Horizontal" value={eyeExam.refraction.dynamicRetinoscopy.leftEye.horizontal}
+                        onChange={(e) => handleInputChange(["refraction", "dynamicRetinoscopy", "leftEye", "horizontal"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OI Vertical" value={eyeExam.refraction.dynamicRetinoscopy.leftEye.vertical}
+                        onChange={(e) => handleInputChange(["refraction", "dynamicRetinoscopy", "leftEye", "vertical"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OI Eje" value={eyeExam.refraction.dynamicRetinoscopy.leftEye.axis}
+                        onChange={(e) => handleInputChange(["refraction", "dynamicRetinoscopy", "leftEye", "axis"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 style={{ fontSize: "14px", marginBottom: "8px", color: "#64748b" }}>Subjetiva</h4>
+                  <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "6px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                      <input type="text" placeholder="OD Horizontal" value={eyeExam.refraction.subjective.rightEye.horizontal}
+                        onChange={(e) => handleInputChange(["refraction", "subjective", "rightEye", "horizontal"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OD Vertical" value={eyeExam.refraction.subjective.rightEye.vertical}
+                        onChange={(e) => handleInputChange(["refraction", "subjective", "rightEye", "vertical"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OD Eje" value={eyeExam.refraction.subjective.rightEye.axis}
+                        onChange={(e) => handleInputChange(["refraction", "subjective", "rightEye", "axis"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OI Horizontal" value={eyeExam.refraction.subjective.leftEye.horizontal}
+                        onChange={(e) => handleInputChange(["refraction", "subjective", "leftEye", "horizontal"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OI Vertical" value={eyeExam.refraction.subjective.leftEye.vertical}
+                        onChange={(e) => handleInputChange(["refraction", "subjective", "leftEye", "vertical"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                      <input type="text" placeholder="OI Eje" value={eyeExam.refraction.subjective.leftEye.axis}
+                        onChange={(e) => handleInputChange(["refraction", "subjective", "leftEye", "axis"], e.target.value)}
+                        style={{ padding: "6px", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "12px" }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fórmula Final (Rx) */}
+              <div style={{ marginBottom: "24px" }}>
+                <h3 style={{ fontSize: "16px", marginBottom: "12px", color: "#0a2540" }}>Fórmula Final (Rx)</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                  <input type="text" placeholder="Prescripción OD" value={eyeExam.rx.prescriptionRE}
+                    onChange={(e) => handleInputChange(["rx", "prescriptionRE"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                  <input type="text" placeholder="Prescripción OI" value={eyeExam.rx.prescriptionLE}
+                    onChange={(e) => handleInputChange(["rx", "prescriptionLE"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                  <input type="text" placeholder="Montaje de parámetros" value={eyeExam.rx.paramMounting}
+                    onChange={(e) => handleInputChange(["rx", "paramMounting"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                  <input type="text" placeholder="Tipo de lente" value={eyeExam.rx.lensType}
+                    onChange={(e) => handleInputChange(["rx", "lensType"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                  <input type="text" placeholder="Distancia pupilar" value={eyeExam.rx.pupillaryDistance}
+                    onChange={(e) => handleInputChange(["rx", "pupillaryDistance"], e.target.value)}
+                    style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
+                </div>
+                <textarea
+                  rows="3"
+                  placeholder="Observaciones de la prescripción"
+                  value={eyeExam.rx.observations}
+                  onChange={(e) => handleInputChange(["rx", "observations"], e.target.value)}
+                  style={{ width: "100%", padding: "10px", border: "1px solid #e2e8f0", borderRadius: "8px", fontFamily: "inherit" }}
                 />
-              </div>
-
-              {/* Examen Visual - Grid de campos médicos */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
-                {/* Columna Izquierda */}
-                <div>
-                  <h3 style={{ fontSize: "16px", marginBottom: "16px", color: "#0a2540" }}>Agudeza Visual</h3>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "20px" }}>
-                    <input type="text" placeholder="OD (Ojo Derecho)" value={eyeExam.visualAcuity.od}
-                      onChange={(e) => handleInputChange("visualAcuity", "od", e.target.value)}
-                      style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                    <input type="text" placeholder="OI (Ojo Izquierdo)" value={eyeExam.visualAcuity.oi}
-                      onChange={(e) => handleInputChange("visualAcuity", "oi", e.target.value)}
-                      style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                  </div>
-
-                  <h3 style={{ fontSize: "16px", marginBottom: "16px", color: "#0a2540" }}>Queratometrías</h3>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "20px" }}>
-                    <input type="text" placeholder="OD" value={eyeExam.keratometry.od}
-                      onChange={(e) => handleInputChange("keratometry", "od", e.target.value)}
-                      style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                    <input type="text" placeholder="OI" value={eyeExam.keratometry.oi}
-                      onChange={(e) => handleInputChange("keratometry", "oi", e.target.value)}
-                      style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                  </div>
-
-                  <h3 style={{ fontSize: "16px", marginBottom: "16px", color: "#0a2540" }}>Refracción</h3>
-                  <div style={{ marginBottom: "20px" }}>
-                    <input type="text" placeholder="Subjetivo" value={eyeExam.refraction.subjetivo}
-                      onChange={(e) => handleInputChange("refraction", "subjetivo", e.target.value)}
-                      style={{ width: "100%", padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                  </div>
-
-                  <h3 style={{ fontSize: "16px", marginBottom: "16px", color: "#0a2540" }}>Fórmula Final (Rx)</h3>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
-                    <input type="text" placeholder="Prescripción OD" value={eyeExam.rx.prescriptionRE}
-                      onChange={(e) => handleInputChange("rx", "prescriptionRE", e.target.value)}
-                      style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                    <input type="text" placeholder="Prescripción OI" value={eyeExam.rx.prescriptionLE}
-                      onChange={(e) => handleInputChange("rx", "prescriptionLE", e.target.value)}
-                      style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                  </div>
-                </div>
-
-                {/* Columna Derecha */}
-                <div>
-                  <h3 style={{ fontSize: "16px", marginBottom: "16px", color: "#0a2540" }}>Estado Motor</h3>
-                  <div style={{ marginBottom: "20px" }}>
-                    <input type="text" placeholder="Resultado" value={eyeExam.motorStatus.resultado}
-                      onChange={(e) => handleInputChange("motorStatus", "resultado", e.target.value)}
-                      style={{ width: "100%", padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                  </div>
-
-                  <h3 style={{ fontSize: "16px", marginBottom: "16px", color: "#0a2540" }}>Examen Ocular Externo</h3>
-                  <div style={{ marginBottom: "20px" }}>
-                    <input type="text" placeholder="Resultado" value={eyeExam.externalEyeExam.resultado}
-                      onChange={(e) => handleInputChange("externalEyeExam", "resultado", e.target.value)}
-                      style={{ width: "100%", padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                  </div>
-
-                  <h3 style={{ fontSize: "16px", marginBottom: "16px", color: "#0a2540" }}>Oftalmoscopía</h3>
-                  <div style={{ marginBottom: "20px" }}>
-                    <input type="text" placeholder="Resultado" value={eyeExam.ophthalmoscopy.resultado}
-                      onChange={(e) => handleInputChange("ophthalmoscopy", "resultado", e.target.value)}
-                      style={{ width: "100%", padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                  </div>
-
-                  <h3 style={{ fontSize: "16px", marginBottom: "16px", color: "#0a2540" }}>Diagnóstico</h3>
-                  <div style={{ marginBottom: "20px" }}>
-                    <input type="text" placeholder="Diagnóstico clínico" value={eyeExam.diagnosis}
-                      onChange={(e) => handleInputChange(null, "diagnosis", e.target.value)}
-                      style={{ width: "100%", padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
-                    <input type="text" placeholder="Distancia Pupilar" value={eyeExam.rx.pupillaryDistance}
-                      onChange={(e) => handleInputChange("rx", "pupillaryDistance", e.target.value)}
-                      style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                    <input type="text" placeholder="Tipo de Lente" value={eyeExam.rx.lensType}
-                      onChange={(e) => handleInputChange("rx", "lensType", e.target.value)}
-                      style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" }} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Observaciones Rx */}
-              <div style={{ marginTop: "24px" }}>
-                <input type="text" placeholder="Observaciones de la fórmula" value={eyeExam.rx.observations}
-                  onChange={(e) => handleInputChange("rx", "observations", e.target.value)}
-                  style={{ width: "100%", padding: "10px", border: "1px solid #e2e8f0", borderRadius: "8px" }} />
               </div>
 
               {/* Botones */}

@@ -4,7 +4,7 @@ import { getUser } from "../api/user.api";
 import { useNavigate } from "react-router-dom";
 
 function Users() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState({ nombre: "Invitado", rol: "OPTOMETRA" });
   const [users, setUsers] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -21,21 +21,23 @@ function Users() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      getUser(payload.id).then(setCurrentUser);
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        getUser(payload.id).then(setCurrentUser);
+      } catch (error) {
+        console.warn("Token inválido en localStorage:", error);
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (currentUser) {
-      getAllUsers().then((data) => {
-        setUsers(data);
-        setLoading(false);
-      }).catch(() => {
-        setLoading(false);
-      });
-    }
-  }, [currentUser]);
+    getAllUsers().then((data) => {
+      setUsers(data);
+      setLoading(false);
+    }).catch(() => {
+      setLoading(false);
+    });
+  }, []);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -131,7 +133,7 @@ function Users() {
     setUserToChangeStatus(null);
   };
 
-  if (!currentUser || loading) return (
+  if (loading) return (
     <div style={{
       minHeight: "100vh", display: "flex",
       alignItems: "center", justifyContent: "center",

@@ -3,6 +3,9 @@ import Login from "../pages/Login";
 import User from "../pages/User";
 import Users from "../pages/Users";
 import Patient from "../pages/Patient";
+import NuevaCita from "../pages/NuevaCita";
+import AgendaCitas from "../pages/AgendaCitas";
+import AppointmentsMenu from "../pages/AppointmentsMenu"; // 👈 Importar
 import PrivateRoute from "../components/PrivateRoute";
 import History from "../pages/History";
 
@@ -33,6 +36,25 @@ function AppRouter() {
         <Route path="/users" element={
           <PrivateRoute rolesPermitidos={["OPTOMETRA"]}>
             <Users />
+          </PrivateRoute>
+        } />
+
+        {/* 👈 Ruta para el menú principal de citas */}
+        <Route path="/appointments" element={
+          <PrivateRoute rolesPermitidos={["OPTOMETRA", "SECRETARIO"]}>
+            <AppointmentsMenu />
+          </PrivateRoute>
+        } />
+
+        <Route path="/citas/nueva" element={
+          <PrivateRoute rolesPermitidos={["OPTOMETRA","SECRETARIO"]}>
+            <NuevaCita />
+          </PrivateRoute>
+        } />
+
+        <Route path="/citas/agenda" element={
+          <PrivateRoute rolesPermitidos={["OPTOMETRA","SECRETARIO"]}>
+            <AgendaCitas />
           </PrivateRoute>
         } />
 
